@@ -1,0 +1,146 @@
+
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Implementation Summary</title>
+<style>
+  body { font-family: -apple-system,"Segoe UI",system-ui,sans-serif; font-size:14px; line-height:1.6;
+         color:#1f2328; max-width:760px; margin:0 auto; padding:28px 20px; background:#fff; }
+  h1   { font-size:20px; margin-bottom:4px; }
+  .sub { color:#57606a; font-size:13px; margin-bottom:28px; }
+  h2   { font-size:15px; font-weight:600; border-bottom:1px solid #e5e7eb; padding-bottom:4px; margin-top:28px; }
+  h3   { font-size:13px; font-weight:600; margin:14px 0 4px; color:#3b82d4; }
+  table { width:100%; border-collapse:collapse; margin-bottom:16px; font-size:13px; }
+  th,td { border:1px solid #e5e7eb; padding:7px 11px; text-align:left; }
+  th { background:#f7f8fa; font-weight:600; }
+  td code { background:#f0f0f0; padding:1px 5px; border-radius:3px; font-size:12px; }
+  .badge { display:inline-block; padding:2px 8px; border-radius:20px; font-size:11px; font-weight:500; }
+  .green { background:#dcfce7; color:#166534; }
+  .blue  { background:#dbeafe; color:#1e40af; }
+  .grey  { background:#f3f4f6; color:#374151; }
+  ul { padding-left:20px; margin:4px 0; }
+  li { margin:2px 0; }
+  .file-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 24px; font-size:13px; }
+  .file-entry { display:flex; gap:6px; align-items:baseline; }
+  .file-path { color:#57606a; font-size:11px; font-family:monospace; }
+  footer { margin-top:40px; padding-top:12px; border-top:1px solid #e5e7eb;
+           font-size:12px; color:#57606a; text-align:center; }
+</style>
+</head>
+<body>
+
+<h1>Vacation Planner Assistant</h1>
+<p class="sub">Java 21 + Spring Boot 3 · TypeScript SPA · Reproduced from architecture.md</p>
+
+<h2>Project Structure — 41 files</h2>
+<div class="file-grid">
+  <div><div class="file-entry"><span class="badge grey">model</span></div>
+    <ul>
+      <li><code>LeaveRecord</code> — immutable domain record</li>
+      <li><code>VacationType</code> — code / label / ARGB color</li>
+      <li><code>LeaveAnalysisResult</code> — computed metrics</li>
+      <li><code>PendingVacation</code> — wizard state</li>
+      <li><code>AuditLogEntry</code> — JSONL log entry</li>
+      <li><code>FileInfo</code> — known Excel file metadata</li>
+    </ul>
+  </div>
+  <div><div class="file-entry"><span class="badge blue">service</span></div>
+    <ul>
+      <li><code>HolidayAgent</code> — intent, context, LLM</li>
+      <li><code>VacationCreationService</code> — add wizard FSM</li>
+      <li><code>VacationDeletionService</code> — delete wizard FSM</li>
+      <li><code>VacationTypeService</code> — CRUD + JSON file</li>
+      <li><code>AuditService</code> — JSONL audit log</li>
+      <li><code>SyncService</code> — background daemon</li>
+      <li><code>ReportGenerator</code> — HTML reports</li>
+      <li><code>AppState</code> — global state singleton</li>
+      <li><code>AuthInterceptor</code> — login_required guard</li>
+    </ul>
+  </div>
+  <div><div class="file-entry"><span class="badge green">excel</span></div>
+    <ul>
+      <li><code>PlannerExcelReader</code> — horizontal calendar parser (Apache POI)</li>
+      <li><code>WorkingExcelWriter</code> — cell write/clear + per-year ReentrantLock</li>
+    </ul>
+  </div>
+  <div><div class="file-entry"><span class="badge blue">llm</span></div>
+    <ul>
+      <li><code>LLMService</code> — interface (Dependency Inversion)</li>
+      <li><code>OpenAIAdapter</code> — OpenAI-compatible (WebClient)</li>
+    </ul>
+  </div>
+</div>
+
+<h2>API Endpoints — 18 routes</h2>
+<table>
+  <thead><tr><th>Method</th><th>Path</th><th>Description</th></tr></thead>
+  <tbody>
+    <tr><td>GET</td><td><code>/login</code></td><td>Render login page</td></tr>
+    <tr><td>POST</td><td><code>/login</code></td><td>BCrypt password check, set session</td></tr>
+    <tr><td>GET</td><td><code>/logout</code></td><td>Clear session, redirect</td></tr>
+    <tr><td>POST</td><td><code>/api/chat</code></td><td>Route: delete wizard → add wizard → analytical → report</td></tr>
+    <tr><td>POST</td><td><code>/api/clear-history</code></td><td>Reset conversation history</td></tr>
+    <tr><td>POST</td><td><code>/api/upload</code></td><td>Parse .xlsx, canonical rename, register</td></tr>
+    <tr><td>GET</td><td><code>/api/files</code></td><td>List known Excel files with active flag</td></tr>
+    <tr><td>POST</td><td><code>/api/switch-file</code></td><td>Change active file</td></tr>
+    <tr><td>GET</td><td><code>/api/employees</code></td><td>Employee name list from master</td></tr>
+    <tr><td>GET</td><td><code>/api/years</code></td><td>Available years from loaded records</td></tr>
+    <tr><td>POST</td><td><code>/api/vacations</code></td><td>Add vacation (direct API, conflict check)</td></tr>
+    <tr><td>DELETE</td><td><code>/api/vacations</code></td><td>Delete vacation cells</td></tr>
+    <tr><td>GET</td><td><code>/api/vacation-types</code></td><td>List all types</td></tr>
+    <tr><td>POST</td><td><code>/api/vacation-types</code></td><td>Add type (409 if exists)</td></tr>
+    <tr><td>PUT</td><td><code>/api/vacation-types/{code}</code></td><td>Update label/color</td></tr>
+    <tr><td>GET</td><td><code>/reports/{file}</code></td><td>Serve HTML report (no-cache headers)</td></tr>
+    <tr><td>GET</td><td><code>/api/reports/{file}</code></td><td>Same (preferred bypass route)</td></tr>
+    <tr><td>GET</td><td><code>/api/sync-status</code></td><td>Daemon thread status</td></tr>
+  </tbody>
+</table>
+
+<h2>Business Logic Preserved</h2>
+<table>
+  <thead><tr><th>Feature</th><th>Implementation</th></tr></thead>
+  <tbody>
+    <tr><td>3-pass fuzzy name matching</td><td>Exact substring → token (min 3/4 chars) → fuzzy score ≥ 1</td></tr>
+    <tr><td>Intent detection</td><td>18 add-keywords · 12 delete-keywords · 11 report-keywords · 4 all-employees</td></tr>
+    <tr><td>Add wizard FSM</td><td>IDLE→NEED_EMP?→NEED_TYPE→NEED_START→NEED_END→CONFIRM→SAVED/CANCELLED</td></tr>
+    <tr><td>Delete wizard FSM</td><td>DELETE_IDLE→…→DELETE_CONFIRM→DELETED/CANCELLED + working-day coverage check</td></tr>
+    <tr><td>By-month distribution</td><td>Proportional overlap: <code>days × overlap_days / total_days</code></td></tr>
+    <tr><td>Streak calculation</td><td>Sort + merge with gap ≤ 2 calendar days (bridge weekends)</td></tr>
+    <tr><td>Month-filter optimization</td><td>Restrict by_month + by_type when month mentioned in question</td></tr>
+    <tr><td>Excel conflict check</td><td>Pre-write cell scan → <code>ExcelWriteConflictException(date, code)</code></td></tr>
+    <tr><td>Atomic file writes</td><td>Write to <code>.{uuid}.tmp</code>, rename with 3× retry + exponential backoff</td></tr>
+    <tr><td>Weekend exclusion</td><td><code>dayOfWeek.getValue() &gt; 5</code> → skip read and write</td></tr>
+    <tr><td>Working copy / master sync</td><td>Daemon thread polls every 5 s, wakes on <code>triggerSync()</code></td></tr>
+    <tr><td>LLM grounding</td><td>System prompt forbids external knowledge, injects full JSON context</td></tr>
+    <tr><td>Conversation history</td><td>Last 20 messages (10 turns) on <code>AppState</code></td></tr>
+    <tr><td>Watsonx support</td><td><code>project_id</code> added to URL query + request body when set</td></tr>
+    <tr><td>HTML report generation</td><td>KPI cards + monthly chart (Chart.js CDN) + type table + detail table</td></tr>
+    <tr><td>Audit log</td><td>JSONL append with <code>ReentrantLock</code> — never propagates failures</td></tr>
+  </tbody>
+</table>
+
+<h2>Frontend (TypeScript SPA)</h2>
+<ul>
+  <li>Single IIFE compiled from <code>holiday_agent.ts</code> → <code>holiday_agent.js</code></li>
+  <li>Boot: 3 parallel fetches — <code>/api/employees</code>, <code>/api/years</code>, <code>/api/files</code></li>
+  <li>Upload: click-to-browse, drag-and-drop, <code>input.change</code></li>
+  <li>Chat types: <code>text</code> (markdown render), <code>report</code> (clickable link), <code>vacation_prompt</code> (accent border)</li>
+  <li>Quick chips: 6 templates populated with first employee + selected year</li>
+  <li>Collapsible sidebar sections; swipe-left-to-close on mobile</li>
+  <li>Mobile responsive: hamburger + overlay + sidebar slide at ≤ 768px</li>
+  <li>Auto-resizing textarea, Enter-to-send, Shift+Enter for newline</li>
+</ul>
+
+<h2>Running</h2>
+<table>
+  <thead><tr><th>Method</th><th>Command</th></tr></thead>
+  <tbody>
+    <tr><td>Development</td><td><code>cd backend &amp;&amp; mvn spring-boot:run</code></td></tr>
+    <tr><td>Build TS</td><td><code>cd frontend &amp;&amp; npm install &amp;&amp; npm run build</code></td></tr>
+    <tr><td>Docker</td><td><code>docker compose up --build</code></td></tr>
+  </tbody>
+</table>
+
+<footer>Made with IBM Bob</footer>
+</body>
+</html>

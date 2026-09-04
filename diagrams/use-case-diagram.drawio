@@ -1,0 +1,439 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mxGraphModel dx="1654" dy="900" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="2200" pageHeight="1400" math="0" shadow="0">
+  <root>
+    <mxCell id="0" />
+    <mxCell id="1" parent="0" />
+
+    <!-- ═══ TITLE ═══ -->
+    <mxCell id="title" value="Holiday Leave Assistant — Use Case Diagram"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=22;fontStyle=1;fontColor=#0F2942;"
+      vertex="1" parent="1">
+      <mxGeometry x="400" y="20" width="1400" height="44" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         ACTORS
+    ════════════════════════════════════════════════════════ -->
+
+    <!-- ACTOR: Admin (left-top) -->
+    <mxCell id="a_admin_head"  value="" style="ellipse;fillColor=#0F2942;strokeColor=#0F2942;" vertex="1" parent="1">
+      <mxGeometry x="72" y="280" width="28" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_body"  value="" style="line;strokeColor=#0F2942;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="86" y="308" width="1" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_arms"  value="" style="line;strokeColor=#0F2942;strokeWidth=2;horizontal=0;" vertex="1" parent="1">
+      <mxGeometry x="66" y="322" width="42" height="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_ll"    value="" style="line;strokeColor=#0F2942;strokeWidth=2;rotation=-30;" vertex="1" parent="1">
+      <mxGeometry x="70" y="344" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_rl"    value="" style="line;strokeColor=#0F2942;strokeWidth=2;rotation=30;" vertex="1" parent="1">
+      <mxGeometry x="102" y="344" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_admin_lbl"   value="Administrator"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=13;fontStyle=1;fontColor=#0F2942;"
+      vertex="1" parent="1">
+      <mxGeometry x="48" y="378" width="110" height="22" as="geometry" />
+    </mxCell>
+
+    <!-- ACTOR: Employee (left-bottom) -->
+    <mxCell id="a_emp_head"    value="" style="ellipse;fillColor=#0369a1;strokeColor=#0369a1;" vertex="1" parent="1">
+      <mxGeometry x="72" y="800" width="28" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="a_emp_body"    value="" style="line;strokeColor=#0369a1;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="86" y="828" width="1" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="a_emp_arms"    value="" style="line;strokeColor=#0369a1;strokeWidth=2;horizontal=0;" vertex="1" parent="1">
+      <mxGeometry x="66" y="842" width="42" height="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a_emp_ll"      value="" style="line;strokeColor=#0369a1;strokeWidth=2;rotation=-30;" vertex="1" parent="1">
+      <mxGeometry x="70" y="864" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_emp_rl"      value="" style="line;strokeColor=#0369a1;strokeWidth=2;rotation=30;" vertex="1" parent="1">
+      <mxGeometry x="102" y="864" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_emp_lbl"     value="Employee"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=13;fontStyle=1;fontColor=#0369a1;"
+      vertex="1" parent="1">
+      <mxGeometry x="52" y="898" width="90" height="22" as="geometry" />
+    </mxCell>
+
+    <!-- ACTOR: LLM Service (right-top) -->
+    <mxCell id="a_llm_head"    value="" style="ellipse;fillColor=#7c3aed;strokeColor=#7c3aed;" vertex="1" parent="1">
+      <mxGeometry x="2088" y="280" width="28" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="a_llm_body"    value="" style="line;strokeColor=#7c3aed;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="2102" y="308" width="1" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="a_llm_arms"    value="" style="line;strokeColor=#7c3aed;strokeWidth=2;horizontal=0;" vertex="1" parent="1">
+      <mxGeometry x="2082" y="322" width="42" height="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a_llm_ll"      value="" style="line;strokeColor=#7c3aed;strokeWidth=2;rotation=-30;" vertex="1" parent="1">
+      <mxGeometry x="2086" y="344" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_llm_rl"      value="" style="line;strokeColor=#7c3aed;strokeWidth=2;rotation=30;" vertex="1" parent="1">
+      <mxGeometry x="2118" y="344" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_llm_lbl"     value="LLM Service&#xa;(OpenAI-compatible)"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#7c3aed;"
+      vertex="1" parent="1">
+      <mxGeometry x="2058" y="378" width="160" height="36" as="geometry" />
+    </mxCell>
+
+    <!-- ACTOR: IBM Box (right-middle) -->
+    <mxCell id="a_box_head"    value="" style="ellipse;fillColor=#059669;strokeColor=#059669;" vertex="1" parent="1">
+      <mxGeometry x="2088" y="620" width="28" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="a_box_body"    value="" style="line;strokeColor=#059669;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="2102" y="648" width="1" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="a_box_arms"    value="" style="line;strokeColor=#059669;strokeWidth=2;horizontal=0;" vertex="1" parent="1">
+      <mxGeometry x="2082" y="662" width="42" height="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a_box_ll"      value="" style="line;strokeColor=#059669;strokeWidth=2;rotation=-30;" vertex="1" parent="1">
+      <mxGeometry x="2086" y="684" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_box_rl"      value="" style="line;strokeColor=#059669;strokeWidth=2;rotation=30;" vertex="1" parent="1">
+      <mxGeometry x="2118" y="684" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_box_lbl"     value="IBM Box&#xa;(Cloud Storage)"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#059669;"
+      vertex="1" parent="1">
+      <mxGeometry x="2058" y="718" width="160" height="36" as="geometry" />
+    </mxCell>
+
+    <!-- ACTOR: Slack (right-bottom) -->
+    <mxCell id="a_slack_head"  value="" style="ellipse;fillColor=#db2777;strokeColor=#db2777;" vertex="1" parent="1">
+      <mxGeometry x="2088" y="960" width="28" height="28" as="geometry" />
+    </mxCell>
+    <mxCell id="a_slack_body"  value="" style="line;strokeColor=#db2777;strokeWidth=2;" vertex="1" parent="1">
+      <mxGeometry x="2102" y="988" width="1" height="36" as="geometry" />
+    </mxCell>
+    <mxCell id="a_slack_arms"  value="" style="line;strokeColor=#db2777;strokeWidth=2;horizontal=0;" vertex="1" parent="1">
+      <mxGeometry x="2082" y="1002" width="42" height="1" as="geometry" />
+    </mxCell>
+    <mxCell id="a_slack_ll"    value="" style="line;strokeColor=#db2777;strokeWidth=2;rotation=-30;" vertex="1" parent="1">
+      <mxGeometry x="2086" y="1024" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_slack_rl"    value="" style="line;strokeColor=#db2777;strokeWidth=2;rotation=30;" vertex="1" parent="1">
+      <mxGeometry x="2118" y="1024" width="1" height="26" as="geometry" />
+    </mxCell>
+    <mxCell id="a_slack_lbl"   value="Slack&#xa;(Notifications)"
+      style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#db2777;"
+      vertex="1" parent="1">
+      <mxGeometry x="2058" y="1058" width="160" height="36" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         SYSTEM BOUNDARY
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="boundary" value="Holiday Leave Assistant System"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0F2942;strokeWidth=3;fontSize=17;fontStyle=1;fontColor=#0F2942;verticalAlign=top;arcSize=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="200" y="80" width="1830" height="1260" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 1: Authentication
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_auth" value="Authentication"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#1d4ed8;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#1d4ed8;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="230" y="120" width="400" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_login"  value="Log In"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="260" y="180" width="150" height="60" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_logout" value="Log Out"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="450" y="180" width="150" height="60" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 2: Leave Management (shared)
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_leave" value="Leave Management"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#9a3412;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="700" y="120" width="520" height="290" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_addwiz"  value="Add Vacation&#xa;(Chat Wizard)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="720" y="175" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_delwiz"  value="Delete Vacation&#xa;(Chat Wizard)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1010" y="175" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_addapi"  value="Add Vacation&#xa;(Direct API)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="720" y="265" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_delapi"  value="Delete Vacation&#xa;(Direct API)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1010" y="265" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_confirm" value="Confirm / Cancel Action"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="860" y="340" width="200" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="ext1" value="«extend»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="uc_confirm" target="uc_addwiz" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ext2" value="«extend»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;exitX=0.5;exitY=0;exitDx=0;exitDy=0;entryX=0.5;entryY=1;entryDx=0;entryDy=0;" edge="1" source="uc_confirm" target="uc_delwiz" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 3: AI Chat and Analytics (shared)
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_chat" value="AI Chat &amp; Analytics"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#5b21b6;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="1290" y="120" width="520" height="290" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_query"     value="Ask Leave Questions&#xa;(Natural Language)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1310" y="175" width="195" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_quickchip" value="Use Quick-Query Chips"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1600" y="175" width="185" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_empclick"  value="Click Employee&#xa;(Pre-fill Query)"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1310" y="265" width="195" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_clear"     value="Clear Chat History"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1600" y="265" width="185" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_llmcall"   value="«system»&#xa;Invoke LLM API"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#c4b5fd;strokeColor=#5b21b6;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="1430" y="345" width="200" height="55" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_llm"  value="«include»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_query" target="uc_llmcall" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ext3" value="«extend»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_quickchip" target="uc_query" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+    <mxCell id="ext4" value="«extend»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_empclick" target="uc_query" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 4: Data File Management (admin-only band)
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_data" value="Data File Management  ★ Admin Only"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#059669;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#065f46;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="230" y="460" width="720" height="170" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_upload"    value="Upload Excel&#xa;Planner File"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="255" y="510" width="160" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_switch"    value="Switch Active File"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="435" y="510" width="160" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_deletefile" value="Delete File"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="615" y="510" width="160" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_autoprov"  value="«system»&#xa;Auto-provision Credentials"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#bbf7d0;strokeColor=#059669;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="795" y="510" width="140" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_prov" value="«include»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_upload" target="uc_autoprov" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 5: Admin Console
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_admin" value="Admin Console  ★ Admin Only"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fef3c7;strokeColor=#d97706;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#92400e;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="230" y="700" width="900" height="290" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pcapprove"   value="Review &amp; Approve&#xa;PC Vacations"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="255" y="755" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_resttypes"   value="Manage Restricted&#xa;Vacation Types"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="455" y="755" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_pwdreset"    value="Reset User Password"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="655" y="755" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_rolemgmt"    value="Promote / Demote&#xa;User Role"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="855" y="755" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_auditview"   value="View Audit Log"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="355" y="850" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_syncstatus"  value="Check Sync Status"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fde68a;strokeColor=#d97706;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="555" y="850" width="180" height="65" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 6: Reporting (shared)
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_report" value="Reporting"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#9d174d;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="1200" y="460" width="600" height="240" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_genreport"   value="Generate HTML&#xa;Leave Report"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1225" y="515" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_openreport"  value="Open / View&#xa;HTML Report"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1440" y="515" width="180" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_leavetypes"  value="View / Manage&#xa;Leave Types"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;fontSize=12;"
+      vertex="1" parent="1">
+      <mxGeometry x="1640" y="515" width="135" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_gen" value="«include»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_genreport" target="uc_openreport" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         GROUP 7: Background Services (system)
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="grp_sys" value="Background Services (System)"
+      style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#475569;strokeWidth=2;fontSize=13;fontStyle=1;fontColor=#1e293b;verticalAlign=top;arcSize=4;"
+      vertex="1" parent="1">
+      <mxGeometry x="1200" y="760" width="770" height="200" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_sync"     value="«system»&#xa;Working → Master Sync"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#cbd5e1;strokeColor=#475569;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="1225" y="815" width="200" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_boxsync"  value="«system»&#xa;IBM Box Cloud Upload"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#cbd5e1;strokeColor=#475569;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="1455" y="815" width="200" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_audit"    value="«system»&#xa;Audit Logging"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#cbd5e1;strokeColor=#475569;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="1685" y="815" width="200" height="65" as="geometry" />
+    </mxCell>
+    <mxCell id="uc_slack"    value="«system»&#xa;Slack Notification"
+      style="ellipse;whiteSpace=wrap;html=1;fillColor=#cbd5e1;strokeColor=#475569;fontSize=12;fontStyle=2;"
+      vertex="1" parent="1">
+      <mxGeometry x="1455" y="900" width="200" height="45" as="geometry" />
+    </mxCell>
+    <mxCell id="inc_box"  value="«include»" style="dashed=1;endArrow=open;endFill=0;fontSize=10;fontStyle=2;" edge="1" source="uc_sync" target="uc_boxsync" parent="1">
+      <mxGeometry relative="1" as="geometry" />
+    </mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         ASSOCIATIONS: Administrator
+    ════════════════════════════════════════════════════════ -->
+    <!-- Auth -->
+    <mxCell id="aa1" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_login"    parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa2" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_logout"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <!-- Leave -->
+    <mxCell id="aa3" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_addwiz"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa4" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_delwiz"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <!-- Chat -->
+    <mxCell id="aa5" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_query"    parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <!-- Report -->
+    <mxCell id="aa6" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_genreport" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <!-- Data Mgmt -->
+    <mxCell id="aa7" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_upload"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa8" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_switch"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa9" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_deletefile" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <!-- Admin Console -->
+    <mxCell id="aa10" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_pcapprove"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa11" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_resttypes"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa12" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_pwdreset"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa13" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_rolemgmt"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa14" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_auditview"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="aa15" style="endArrow=none;strokeColor=#0F2942;strokeWidth=1.5;" edge="1" source="a_admin_lbl" target="uc_syncstatus" parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         ASSOCIATIONS: Employee
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="ae1" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_login"      parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae2" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_logout"     parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae3" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_addwiz"     parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae4" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_delwiz"     parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae5" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_query"      parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae6" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_genreport"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae7" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_quickchip"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="ae8" style="endArrow=none;strokeColor=#0369a1;strokeWidth=1.5;" edge="1" source="a_emp_lbl" target="uc_empclick"   parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         ASSOCIATIONS: External Systems
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="b1"  style="endArrow=none;strokeColor=#7c3aed;strokeWidth=1.5;" edge="1" source="a_llm_lbl"   target="uc_llmcall"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="b2"  style="endArrow=none;strokeColor=#059669;strokeWidth=1.5;" edge="1" source="a_box_lbl"   target="uc_boxsync"  parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+    <mxCell id="b3"  style="endArrow=none;strokeColor=#db2777;strokeWidth=1.5;" edge="1" source="a_slack_lbl" target="uc_slack"    parent="1"><mxGeometry relative="1" as="geometry" /></mxCell>
+
+    <!-- ═══════════════════════════════════════════════════
+         LEGEND
+    ════════════════════════════════════════════════════════ -->
+    <mxCell id="leg_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;strokeWidth=1;" vertex="1" parent="1">
+      <mxGeometry x="230" y="1060" width="540" height="130" as="geometry" />
+    </mxCell>
+    <mxCell id="leg_t"   value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=13;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1068" width="120" height="20" as="geometry" />
+    </mxCell>
+    <mxCell id="leg1" value="──────  Association (actor participates in use case)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1092" width="450" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="leg2" value="- - - ▷  «include»  — always executed as part of base use case" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1114" width="490" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="leg3" value="- - - ▷  «extend»   — conditionally executed" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1136" width="450" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="leg4" value="«system»  Internal / automated use case (no direct user action)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=2;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1158" width="490" height="18" as="geometry" />
+    </mxCell>
+    <mxCell id="leg5" value="★ Admin Only  — group restricted to Administrator role" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontColor=#92400e;fontStyle=1;" vertex="1" parent="1">
+      <mxGeometry x="248" y="1180" width="490" height="18" as="geometry" />
+    </mxCell>
+
+  </root>
+</mxGraphModel>

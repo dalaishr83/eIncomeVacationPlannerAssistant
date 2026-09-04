@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<!--
+    Admin layout fragments library.
+    This file is NEVER returned by a controller directly.
+    Pages import named fragments from here using:
+        th:replace="~{admin/layout :: sidebar}"
+        th:replace="~{admin/layout :: topbar}"
+        th:replace="~{admin/layout :: base-head}"
+
+    Each page is the controller entry-point and composes its own full HTML
+    document by inserting these shared fragments.
+-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+
+<!--/* ── Shared <head> content (meta + global CSS) ────────────────────── */-->
+<th:block th:fragment="base-head">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <link rel="stylesheet" th:href="@{/static/holiday_agent.css}">
+</th:block>
+
+<!--/* ── Hamburger + overlay (mobile) ──────────────────────────────────── */-->
+<th:block th:fragment="mobile-chrome">
+    <button class="hamburger" id="hamburgerBtn" aria-label="Open sidebar">☰</button>
+    <div class="overlay" id="overlay"></div>
+</th:block>
+
+<!--/* ── Sidebar ─────────────────────────────────────────────────────────── */-->
+<th:block th:fragment="sidebar">
+<aside class="sidebar" id="sidebar">
+
+    <!-- Brand header -->
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <!-- App logo: calendar base + chat bubble overlay -->
+            <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <!-- Calendar body -->
+                <rect x="12" y="22" width="76" height="62" rx="10" fill="white" fill-opacity="0.92"/>
+                <!-- Calendar header bar -->
+                <rect x="12" y="22" width="76" height="22" rx="10" fill="#60a5fa" fill-opacity="0.9"/>
+                <rect x="12" y="36" width="76" height="8" fill="#60a5fa" fill-opacity="0.9"/>
+                <!-- Calendar binding pegs -->
+                <rect x="30" y="14" width="8" height="16" rx="4" fill="white" fill-opacity="0.9"/>
+                <rect x="62" y="14" width="8" height="16" rx="4" fill="white" fill-opacity="0.9"/>
+                <!-- Grid dots (date cells) -->
+                <rect x="22" y="52" width="10" height="8" rx="2" fill="#bfdbfe"/>
+                <rect x="37" y="52" width="10" height="8" rx="2" fill="#bfdbfe"/>
+                <rect x="52" y="52" width="10" height="8" rx="2" fill="#2563eb" fill-opacity="0.7"/>
+                <rect x="67" y="52" width="10" height="8" rx="2" fill="#bfdbfe"/>
+                <rect x="22" y="65" width="10" height="8" rx="2" fill="#bfdbfe"/>
+                <rect x="37" y="65" width="10" height="8" rx="2" fill="#bfdbfe"/>
+                <!-- Chat bubble (bottom-right accent) -->
+                <rect x="52" y="58" width="34" height="26" rx="8" fill="#1d4ed8"/>
+                <path d="M52 80 L48 88 L60 80 Z" fill="#1d4ed8"/>
+                <!-- Chat bubble dots -->
+                <circle cx="62" cy="71" r="3" fill="white" fill-opacity="0.9"/>
+                <circle cx="72" cy="71" r="3" fill="white" fill-opacity="0.9"/>
+                <circle cx="82" cy="71" r="3" fill="white" fill-opacity="0.9"/>
+            </svg>
+        </div>
+        <div class="sidebar-brand-text">
+            <div class="sidebar-brand-title">Vacation Planner Assistant</div>
+            <div class="sidebar-brand-sub">Admin</div>
+        </div>
+    </div>
+
+    <!-- Upload Zone (admin only) -->
+    <div class="upload-zone" id="uploadZone">
+        <div class="upload-icon">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7">
+                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                <polyline points="14 2 14 8 20 8"/>
+                <line x1="12" y1="18" x2="12" y2="12"/>
+                <line x1="9" y1="15" x2="15" y2="15"/>
+            </svg>
+        </div>
+        <p class="upload-label">Drop your <span class="xlsx-highlight">.xlsx</span> file here</p>
+        <p class="upload-sub">or tap to browse</p>
+        <input type="file" id="fileInput" accept=".xlsx" style="display:none">
+    </div>
+
+    <!-- Available Files -->
+    <div class="sidebar-section sidebar-section--fixed">
+        <div class="section-header collapsible" data-target="fileListContent">
+            <span>Available Files</span><span class="chevron">▾</span>
+        </div>
+        <div id="fileListContent" class="section-content">
+            <ul id="fileList" class="file-list"></ul>
+        </div>
+    </div>
+
+    <!-- Admin Navigation Links -->
+    <div class="sidebar-section sidebar-section--fixed" style="padding:8px 0 4px 0;">
+        <div class="section-header"><span>Admin</span></div>
+        <div class="section-content" style="padding:4px 0;">
+            <a href="/"
+               th:classappend="${currentPage == 'dashboard'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                Chat
+            </a>
+            <a href="/admin/settings"
+               th:classappend="${currentPage == 'settings'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06A1.65 1.65 0 0 0 4.68 15a1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06A1.65 1.65 0 0 0 9 4.68a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06A1.65 1.65 0 0 0 19.4 9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+                Settings
+            </a>
+            <a href="/admin/approvals"
+               th:classappend="${currentPage == 'approvals'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;"><polyline points="20 6 9 17 4 12"/></svg>
+                PC Approvals
+            </a>
+            <a href="/admin/audit-log"
+               th:classappend="${currentPage == 'audit-log'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
+                Audit Log
+            </a>
+        </div>
+    </div>
+
+    <!-- Quick Questions -->
+    <div class="sidebar-section--quick">
+        <div class="section-header collapsible" data-target="chipsContent">
+            <span>Quick Questions</span><span class="chevron">▾</span>
+        </div>
+        <div id="chipsContent" class="section-content">
+            <div id="quickChips" class="chips"></div>
+        </div>
+    </div>
+
+    <!-- Sidebar Footer -->
+    <div class="sidebar-footer">
+        <button class="btn-sidebar-footer" id="clearHistoryBtn" title="Clear chat history">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+            Clear
+        </button>
+        <button class="btn-sidebar-footer" id="refreshBtn" title="Refresh data">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+        </button>
+        <button class="btn-sidebar-footer" id="resetPasswordBtn" title="Reset Password">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="15" r="4"/>
+                <line x1="19" y1="4" x2="11.41" y2="11.59"/>
+                <line x1="19" y1="4" x2="21" y2="6"/>
+                <line x1="16" y1="4" x2="18" y2="6"/>
+            </svg>
+            Key
+        </button>
+    </div>
+</aside>
+
+<!--/* ── Reset Password Modal ──────────────────────────────────────────── */-->
+<div class="rp-backdrop" id="rpBackdrop" role="dialog" aria-modal="true" aria-labelledby="rpTitle">
+    <div class="rp-modal">
+        <button class="rp-close" id="rpCloseBtn" aria-label="Close">&times;</button>
+        <h2 class="rp-modal-title" id="rpTitle">Reset Password</h2>
+        <p class="rp-modal-sub">Enter your current password and choose a new one.</p>
+
+        <div class="rp-field">
+            <label class="rp-label" for="rpCurrentPwd">Current Password</label>
+            <div class="rp-input-wrap">
+                <input class="rp-input" type="password" id="rpCurrentPwd" autocomplete="current-password" placeholder="Current password">
+                <button class="rp-eye" type="button" data-target="rpCurrentPwd" aria-label="Toggle visibility">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="rp-field">
+            <label class="rp-label" for="rpNewPwd">New Password</label>
+            <div class="rp-input-wrap">
+                <input class="rp-input" type="password" id="rpNewPwd" autocomplete="new-password" placeholder="New password">
+                <button class="rp-eye" type="button" data-target="rpNewPwd" aria-label="Toggle visibility">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <p class="rp-msg" id="rpMsg"></p>
+
+        <div class="rp-actions">
+            <button class="rp-btn-cancel" id="rpCancelBtn" type="button">Cancel</button>
+            <button class="rp-btn-submit" id="rpSubmitBtn" type="button">Update Password</button>
+        </div>
+    </div>
+</div>
+
+<!--/* ── Reset Password IIFE (self-contained; no dependency on holiday_agent.js) */-->
+<script th:inline="none">
+(function () {
+    "use strict";
+
+    var backdrop     = document.getElementById("rpBackdrop");
+    var openBtn      = document.getElementById("resetPasswordBtn");
+    var closeBtn     = document.getElementById("rpCloseBtn");
+    var cancelBtn    = document.getElementById("rpCancelBtn");
+    var submitBtn    = document.getElementById("rpSubmitBtn");
+    var currentInput = document.getElementById("rpCurrentPwd");
+    var newInput     = document.getElementById("rpNewPwd");
+    var msgEl        = document.getElementById("rpMsg");
+
+    if (!backdrop || !openBtn) return;
+
+    function openModal() {
+        clearForm();
+        backdrop.classList.add("rp-open");
+        currentInput.focus();
+    }
+
+    function closeModal() {
+        backdrop.classList.remove("rp-open");
+        clearForm();
+    }
+
+    function clearForm() {
+        currentInput.value = "";
+        newInput.value     = "";
+        setMsg("", "");
+        submitBtn.disabled = false;
+        [currentInput, newInput].forEach(function (inp) { inp.type = "password"; });
+    }
+
+    function setMsg(text, type) {
+        msgEl.textContent = text;
+        msgEl.className   = "rp-msg" + (type ? " rp-" + type : "");
+    }
+
+    backdrop.querySelectorAll(".rp-eye").forEach(function (btn) {
+        btn.addEventListener("click", function () {
+            var input = document.getElementById(btn.getAttribute("data-target"));
+            if (input) input.type = (input.type === "password") ? "text" : "password";
+        });
+    });
+
+    backdrop.addEventListener("click", function (e) {
+        if (e.target === backdrop) closeModal();
+    });
+
+    document.addEventListener("keydown", function (e) {
+        if (e.key === "Escape" && backdrop.classList.contains("rp-open")) closeModal();
+    });
+
+    openBtn.addEventListener("click",   openModal);
+    closeBtn.addEventListener("click",  closeModal);
+    cancelBtn.addEventListener("click", closeModal);
+
+    submitBtn.addEventListener("click", function () {
+        var current = currentInput.value.trim();
+        var newPwd  = newInput.value.trim();
+        if (!current || !newPwd) { setMsg("Please fill in both fields.", "error"); return; }
+
+        submitBtn.disabled = true;
+        setMsg("", "");
+
+        fetch("/api/change-password", {
+            method:  "POST",
+            headers: { "Content-Type": "application/json" },
+            body:    JSON.stringify({ currentPassword: current, newPassword: newPwd })
+        })
+        .then(function (res) { return res.json(); })
+        .then(function (data) {
+            if (data.success) {
+                setMsg("Password updated successfully!", "success");
+                currentInput.value = "";
+                newInput.value     = "";
+                submitBtn.disabled = false;
+            } else {
+                setMsg(data.error || "Failed to update password.", "error");
+                submitBtn.disabled = false;
+            }
+        })
+        .catch(function () {
+            setMsg("Network error. Please try again.", "error");
+            submitBtn.disabled = false;
+        });
+    });
+
+})();
+</script>
+</th:block>
+
+<!--/* ── Topbar ───────────────────────────────────────────────────────────── */-->
+<header th:fragment="topbar" class="topbar">
+    <div class="topbar-left">
+        <span class="status-dot" id="statusDot" title="LLM status"></span>
+        <div class="topbar-title-group">
+            <a href="/" class="topbar-title" style="text-decoration:none;color:inherit;">Vacation Planner Assistant</a>
+            <span class="topbar-subtitle" id="topbarSubtitle"
+                  th:text="${topbarSubtitle} ?: 'Admin'">Admin</span>
+        </div>
+    </div>
+    <div class="topbar-actions">
+        <button class="btn-new-chat" id="newChatBtn" aria-label="New Chat">
+            <span class="topbar-btn-icon" aria-hidden="true">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                </svg>
+            </span>
+            <span class="topbar-btn-text">New Chat</span>
+        </button>
+        <a href="/logout" class="btn-signout">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            Sign out
+        </a>
+    </div>
+</header>
+
+</html>

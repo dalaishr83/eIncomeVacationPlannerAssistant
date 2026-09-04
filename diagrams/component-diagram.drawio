@@ -1,0 +1,444 @@
+<mxfile host="Electron" agent="Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/29.0.3 Chrome/140.0.7339.249 Electron/38.7.0 Safari/537.36" version="29.0.3">
+  <diagram id="IBEKhwBc4Me7jzWAWNwr" name="Page-1">
+    <mxGraphModel dx="2800" dy="1400" grid="1" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1920" pageHeight="1360" math="0" shadow="0">
+      <root>
+        <mxCell id="0" />
+        <mxCell id="1" parent="0" />
+
+        <!-- ══ TITLE ══════════════════════════════════════════════════════════════ -->
+        <mxCell id="title" value="Holiday Leave Assistant — Component Diagram" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=20;fontStyle=1;fontColor=#0F2942;" parent="1" vertex="1">
+          <mxGeometry x="310" y="15" width="1300" height="40" as="geometry" />
+        </mxCell>
+
+        <!-- ══ ACTORS — LEFT ══════════════════════════════════════════════════════ -->
+
+        <!-- HR User / Browser -->
+        <mxCell id="u_head" value="" style="ellipse;fillColor=#0F2942;strokeColor=#0F2942;" parent="1" vertex="1">
+          <mxGeometry x="32" y="510" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="u_body" value="" style="line;strokeColor=#0F2942;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="536" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="u_arms" value="" style="line;strokeColor=#0F2942;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="25" y="548" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="u_ll" value="" style="line;strokeColor=#0F2942;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="29" y="570" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="u_rl" value="" style="line;strokeColor=#0F2942;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="61" y="570" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="u_lbl" value="Browser" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#0F2942;" parent="1" vertex="1">
+          <mxGeometry x="10" y="598" width="70" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="u_lbl2" value="HR User" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#0F2942;" parent="1" vertex="1">
+          <mxGeometry x="10" y="616" width="70" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Admin User / Browser -->
+        <mxCell id="adm_head" value="" style="ellipse;fillColor=#7c3aed;strokeColor=#7c3aed;" parent="1" vertex="1">
+          <mxGeometry x="32" y="730" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_body" value="" style="line;strokeColor=#7c3aed;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="45" y="756" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_arms" value="" style="line;strokeColor=#7c3aed;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="25" y="768" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_ll" value="" style="line;strokeColor=#7c3aed;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="29" y="790" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_rl" value="" style="line;strokeColor=#7c3aed;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="61" y="790" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_lbl" value="Browser" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#7c3aed;" parent="1" vertex="1">
+          <mxGeometry x="10" y="818" width="70" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="adm_lbl2" value="Admin User" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#7c3aed;" parent="1" vertex="1">
+          <mxGeometry x="10" y="836" width="70" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ══ ACTORS — RIGHT ═════════════════════════════════════════════════════ -->
+
+        <!-- LLM Provider -->
+        <mxCell id="llm_head" value="" style="ellipse;fillColor=#0891b2;strokeColor=#0891b2;" parent="1" vertex="1">
+          <mxGeometry x="1852" y="340" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_body" value="" style="line;strokeColor=#0891b2;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="1865" y="366" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_arms" value="" style="line;strokeColor=#0891b2;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="1845" y="378" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_ll" value="" style="line;strokeColor=#0891b2;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="1849" y="400" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_rl" value="" style="line;strokeColor=#0891b2;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="1881" y="400" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_lbl" value="LLM Provider" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#0891b2;" parent="1" vertex="1">
+          <mxGeometry x="1820" y="428" width="130" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="llm_lbl2" value="(OpenAI-compatible)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#0891b2;" parent="1" vertex="1">
+          <mxGeometry x="1814" y="446" width="142" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- File System -->
+        <mxCell id="fs_head" value="" style="ellipse;fillColor=#059669;strokeColor=#059669;" parent="1" vertex="1">
+          <mxGeometry x="1852" y="640" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_body" value="" style="line;strokeColor=#059669;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="1865" y="666" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_arms" value="" style="line;strokeColor=#059669;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="1845" y="678" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_ll" value="" style="line;strokeColor=#059669;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="1849" y="700" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_rl" value="" style="line;strokeColor=#059669;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="1881" y="700" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_lbl" value="File System" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#059669;" parent="1" vertex="1">
+          <mxGeometry x="1828" y="728" width="114" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="fs_lbl2" value="eIndkomst .xlsx" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#059669;" parent="1" vertex="1">
+          <mxGeometry x="1823" y="746" width="124" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- IBM Box -->
+        <mxCell id="box_head" value="" style="ellipse;fillColor=#2563eb;strokeColor=#2563eb;" parent="1" vertex="1">
+          <mxGeometry x="1852" y="920" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="box_body" value="" style="line;strokeColor=#2563eb;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="1865" y="946" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="box_arms" value="" style="line;strokeColor=#2563eb;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="1845" y="958" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="box_ll" value="" style="line;strokeColor=#2563eb;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="1849" y="980" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="box_rl" value="" style="line;strokeColor=#2563eb;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="1881" y="980" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="box_lbl" value="IBM Box" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#2563eb;" parent="1" vertex="1">
+          <mxGeometry x="1832" y="1008" width="106" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="box_lbl2" value="(Cloud Storage)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#2563eb;" parent="1" vertex="1">
+          <mxGeometry x="1826" y="1026" width="118" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- Slack -->
+        <mxCell id="slack_head" value="" style="ellipse;fillColor=#ea580c;strokeColor=#ea580c;" parent="1" vertex="1">
+          <mxGeometry x="1852" y="1130" width="26" height="26" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_body" value="" style="line;strokeColor=#ea580c;strokeWidth=2;" parent="1" vertex="1">
+          <mxGeometry x="1865" y="1156" width="1" height="34" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_arms" value="" style="line;strokeColor=#ea580c;strokeWidth=2;horizontal=0;" parent="1" vertex="1">
+          <mxGeometry x="1845" y="1168" width="40" height="1" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_ll" value="" style="line;strokeColor=#ea580c;strokeWidth=2;rotation=-30;" parent="1" vertex="1">
+          <mxGeometry x="1849" y="1190" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_rl" value="" style="line;strokeColor=#ea580c;strokeWidth=2;rotation=30;" parent="1" vertex="1">
+          <mxGeometry x="1881" y="1190" width="1" height="24" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_lbl" value="Slack" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=12;fontStyle=1;fontColor=#ea580c;" parent="1" vertex="1">
+          <mxGeometry x="1838" y="1218" width="94" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="slack_lbl2" value="(Incoming Webhook)" style="text;html=1;strokeColor=none;fillColor=none;align=center;fontSize=11;fontColor=#ea580c;" parent="1" vertex="1">
+          <mxGeometry x="1822" y="1236" width="126" height="18" as="geometry" />
+        </mxCell>
+
+        <!-- ══ SYSTEM BOUNDARY ═════════════════════════════════════════════════════ -->
+        <mxCell id="sys_boundary" value="Spring Boot Application  (Java 8 / Spring Boot 2.7)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=none;strokeColor=#0F2942;strokeWidth=3;fontSize=14;fontStyle=1;fontColor=#0F2942;verticalAlign=top;arcSize=2;" parent="1" vertex="1">
+          <mxGeometry x="150" y="70" width="1670" height="1260" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: PRESENTATION ════════════════════════════════════════════════ -->
+        <mxCell id="layer_fe" value="Presentation Layer — Static Resources (served by Spring)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#EFF6FF;strokeColor=#3b82d4;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#1d4ed8;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="100" width="1630" height="200" as="geometry" />
+        </mxCell>
+
+        <!-- Employee SPA -->
+        <mxCell id="fe_js" value="&lt;b&gt;holiday_agent.js&lt;/b&gt;&lt;br/&gt;Employee SPA (Vanilla JS)&lt;br/&gt;• Chat UI &amp; wizard step rendering&lt;br/&gt;• Auto-focus, report link extraction&lt;br/&gt;• File upload / switch" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="140" width="220" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_admin_js" value="&lt;b&gt;holiday_agent_admin.js&lt;/b&gt;&lt;br/&gt;Admin SPA (Vanilla JS)&lt;br/&gt;• File deletion&lt;br/&gt;• Admin chat relay" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="425" y="140" width="200" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_css" value="&lt;b&gt;holiday_agent.css&lt;/b&gt;&lt;br/&gt;Employee Stylesheet&lt;br/&gt;&lt;b&gt;login.css&lt;/b&gt; Login Stylesheet" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="640" y="140" width="185" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_index" value="&lt;b&gt;index.html&lt;/b&gt; (Thymeleaf)&lt;br/&gt;SPA entry point&lt;br/&gt;&lt;b&gt;employee-page.html&lt;/b&gt;&lt;br/&gt;Employee Thymeleaf view" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="840" y="140" width="195" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_login" value="&lt;b&gt;login.html&lt;/b&gt;&lt;br/&gt;Thymeleaf Login Page" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1050" y="140" width="165" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_admin_pages" value="&lt;b&gt;Admin Thymeleaf Pages&lt;/b&gt;&lt;br/&gt;dashboard.html&lt;br/&gt;settings.html&lt;br/&gt;approvals.html&lt;br/&gt;audit-log.html&lt;br/&gt;layout.html (shared)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1230" y="140" width="190" height="130" as="geometry" />
+        </mxCell>
+        <mxCell id="fe_chart" value="&lt;b&gt;Chart.js 4.4.3&lt;/b&gt; (CDN)&lt;br/&gt;Bar / Doughnut / Line" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#bfdbfe;strokeColor=#1d4ed8;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;dashed=1;" parent="1" vertex="1">
+          <mxGeometry x="1435" y="140" width="165" height="130" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: CONTROLLER ═══════════════════════════════════════════════════ -->
+        <mxCell id="layer_ctrl" value="Controller Layer — REST API  (/api/*)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fff7ed;strokeColor=#ea580c;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#9a3412;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="330" width="1630" height="145" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_auth" value="&lt;b&gt;AuthController&lt;/b&gt;&lt;br/&gt;POST /login&lt;br/&gt;GET /logout" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="365" width="155" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_chat" value="&lt;b&gt;ChatController&lt;/b&gt;&lt;br/&gt;POST /api/chat&lt;br/&gt;POST /api/clear-history&lt;br/&gt;(Wizard dispatch)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="360" y="365" width="185" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_file" value="&lt;b&gt;FileController&lt;/b&gt;&lt;br/&gt;POST /api/upload&lt;br/&gt;GET /api/files&lt;br/&gt;POST /api/switch-file&lt;br/&gt;GET /api/employees, /years" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="560" y="365" width="195" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_vac" value="&lt;b&gt;VacationController&lt;/b&gt;&lt;br/&gt;POST/DELETE /api/vacations&lt;br/&gt;GET/POST/PUT&lt;br/&gt;/api/vacation-types" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="770" y="365" width="185" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_report" value="&lt;b&gt;ReportsController&lt;/b&gt;&lt;br/&gt;GET /api/reports/{file}&lt;br/&gt;GET /api/sync-status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="970" y="365" width="185" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_idx" value="&lt;b&gt;IndexController&lt;/b&gt;&lt;br/&gt;GET / → index.html" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ffedd5;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1170" y="365" width="155" height="85" as="geometry" />
+        </mxCell>
+        <mxCell id="ctrl_admin" value="&lt;b&gt;AdminController&lt;/b&gt;&lt;br/&gt;GET /admin/{dashboard,settings,&lt;br/&gt;approvals,audit-log}&lt;br/&gt;GET/POST /api/admin/audit-log&lt;br/&gt;GET/POST /api/admin/settings/*&lt;br/&gt;DELETE /api/admin/files&lt;br/&gt;GET/POST /api/admin/approvals/*" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1340" y="330" width="220" height="140" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: SERVICE ═══════════════════════════════════════════════════════ -->
+        <mxCell id="layer_svc" value="Service Layer — Business Logic" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0fdf4;strokeColor=#059669;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#065f46;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="510" width="1630" height="240" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_agent" value="&lt;b&gt;HolidayAgent&lt;/b&gt;&lt;br/&gt;• Intent detection&lt;br/&gt;• 3-pass fuzzy name match&lt;br/&gt;• Context builder&lt;br/&gt;• LLM orchestration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="550" width="185" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_create" value="&lt;b&gt;VacationCreationService&lt;/b&gt;&lt;br/&gt;• Multi-step add wizard&lt;br/&gt;• State machine&lt;br/&gt;• Date fmt (dd MMM yyyy)&lt;br/&gt;• Weekday counting" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="390" y="550" width="185" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_delete" value="&lt;b&gt;VacationDeletionService&lt;/b&gt;&lt;br/&gt;• Multi-step delete wizard&lt;br/&gt;• Coverage validation&lt;br/&gt;• Date fmt (dd MMM yyyy)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="590" y="550" width="185" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_report" value="&lt;b&gt;ReportGenerator&lt;/b&gt;&lt;br/&gt;• Self-contained HTML&lt;br/&gt;• 6 KPI cards&lt;br/&gt;• Progress bar&lt;br/&gt;• 3 Chart.js charts&lt;br/&gt;• Leave-type badges" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="790" y="550" width="175" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_appstate" value="&lt;b&gt;AppState&lt;/b&gt;&lt;br/&gt;• Loaded / active files&lt;br/&gt;• Wizard session state&lt;br/&gt;• Conversation history&lt;br/&gt;• Known files list" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="980" y="550" width="170" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_support" value="&lt;b&gt;VacationTypeService&lt;/b&gt;&lt;br/&gt;CRUD vacation types&lt;br/&gt;&lt;br/&gt;&lt;b&gt;AuditService&lt;/b&gt;&lt;br/&gt;Append / read audit.log&lt;br/&gt;&lt;br/&gt;&lt;b&gt;AuthInterceptor&lt;/b&gt;&lt;br/&gt;Session role guard" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1165" y="550" width="175" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_sync" value="&lt;b&gt;SyncService&lt;/b&gt;&lt;br/&gt;• Daemon thread (5 min cycle)&lt;br/&gt;• working → master merge&lt;br/&gt;• Triggers BoxSyncService&lt;br/&gt;• Exposes sync status" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#d1fae5;strokeColor=#059669;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1355" y="550" width="185" height="170" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_box" value="&lt;b&gt;BoxSyncService&lt;/b&gt;&lt;br/&gt;• Async upload to IBM Box&lt;br/&gt;• JWT or CCG auth&lt;br/&gt;• Retry w/ backoff (3×)&lt;br/&gt;• Non-blocking (daemon)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#dbeafe;strokeColor=#2563eb;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1555" y="550" width="185" height="170" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: ADMIN SERVICES ═══════════════════════════════════════════════ -->
+        <mxCell id="layer_admin_svc" value="Admin &amp; Security Services" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fdf4ff;strokeColor=#a21caf;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#701a75;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="785" width="1240" height="155" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_secret" value="&lt;b&gt;SecretService&lt;/b&gt;&lt;br/&gt;• File-backed credential store&lt;br/&gt;• BCrypt password hashing&lt;br/&gt;• Role management (admin/employee)&lt;br/&gt;• Auto-provision employee accounts&lt;br/&gt;• Legacy format migration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0abfc;strokeColor=#a21caf;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="820" width="280" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_restricted" value="&lt;b&gt;RestrictedVacationTypeService&lt;/b&gt;&lt;br/&gt;• File-backed restricted codes&lt;br/&gt;• Block restricted types on add&lt;br/&gt;• Hidden from employee UI" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0abfc;strokeColor=#a21caf;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="490" y="820" width="260" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_slack" value="&lt;b&gt;SlackNotificationService&lt;/b&gt;&lt;br/&gt;• Async Slack webhook (fire &amp; forget)&lt;br/&gt;• PC leave add notification&lt;br/&gt;• Vacation delete notification&lt;br/&gt;• Retry w/ backoff (3×)&lt;br/&gt;• Disabled by default" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fed7aa;strokeColor=#ea580c;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="770" y="820" width="240" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="svc_security" value="&lt;b&gt;SecurityConfig&lt;/b&gt;&lt;br/&gt;Spring Security + BCrypt&lt;br/&gt;&lt;br/&gt;&lt;b&gt;WebConfig&lt;/b&gt;&lt;br/&gt;AuthInterceptor · CORS/MVC" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f0abfc;strokeColor=#a21caf;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1030" y="820" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: ANALYSIS ════════════════════════════════════════════════════ -->
+        <mxCell id="layer_ana" value="Analysis Layer — Pure Analytics (Stateless)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#5b21b6;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="975" width="740" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="ana_svc" value="&lt;b&gt;LeaveAnalysisService&lt;/b&gt;&lt;br/&gt;• consumedToDate()&lt;br/&gt;• byMonth / byType maps&lt;br/&gt;• longestStreak (weekend bridge)&lt;br/&gt;• avgPerMonth · monthlyTrend" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#c4b5fd;strokeColor=#7c3aed;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="1010" width="250" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="ana_result" value="&lt;b&gt;LeaveAnalysisResult&lt;/b&gt; (model)&lt;br/&gt;entitlement · consumed · remaining&lt;br/&gt;utilizationPct · avgPerMonth&lt;br/&gt;longestStreak · byMonth · byType · monthlyTrend&lt;br/&gt;&lt;br/&gt;&lt;b&gt;Models:&lt;/b&gt; LeaveRecord · PendingVacation&lt;br/&gt;VacationType · AuditLogEntry · FileInfo" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#ede9fe;strokeColor=#7c3aed;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="460" y="1010" width="430" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: INFRASTRUCTURE ══════════════════════════════════════════════ -->
+        <mxCell id="layer_infra" value="Infrastructure Layer — I/O Adapters" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fce7f3;strokeColor=#db2777;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#9d174d;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="930" y="975" width="870" height="150" as="geometry" />
+        </mxCell>
+        <mxCell id="infra_reader" value="&lt;b&gt;PlannerExcelReader&lt;/b&gt;&lt;br/&gt;(Apache POI 5.2.5)&lt;br/&gt;• Reads eIndkomst layout&lt;br/&gt;• Detects year · Parses records&lt;br/&gt;• LRU cache with evict()" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbcfe8;strokeColor=#db2777;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="950" y="1010" width="195" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="infra_writer" value="&lt;b&gt;WorkingExcelWriter&lt;/b&gt;&lt;br/&gt;(Apache POI 5.2.5)&lt;br/&gt;• Atomic cell-level writes&lt;br/&gt;• Weekend exclusion&lt;br/&gt;• Conflict check" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbcfe8;strokeColor=#db2777;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1160" y="1010" width="185" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="infra_llm" value="&lt;b&gt;OpenAIAdapter&lt;/b&gt;&lt;br/&gt;(LLMService impl.)&lt;br/&gt;• WebClient HTTP calls&lt;br/&gt;• System prompt · Conv. history&lt;br/&gt;• watsonxProjectId support" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#fbcfe8;strokeColor=#db2777;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="1360" y="1010" width="200" height="100" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LAYER: CONFIGURATION ═══════════════════════════════════════════════ -->
+        <mxCell id="layer_cfg" value="Configuration" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f1f5f9;strokeColor=#475569;strokeWidth=2;fontSize=12;fontStyle=1;fontColor=#1e293b;verticalAlign=top;arcSize=3;" parent="1" vertex="1">
+          <mxGeometry x="170" y="1160" width="1630" height="140" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg_props" value="&lt;b&gt;AppProperties&lt;/b&gt;&lt;br/&gt;Typed env-var bindings&lt;br/&gt;Llm · Box · Slack inner classes" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#475569;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="190" y="1200" width="230" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg_appprop" value="&lt;b&gt;application.properties&lt;/b&gt;&lt;br/&gt;Spring Boot config&lt;br/&gt;(env-var overrides)" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#475569;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="435" y="1200" width="210" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg_data" value="&lt;b&gt;Data Files&lt;/b&gt;&lt;br/&gt;vacation_types.json&lt;br/&gt;restricted-vacation-types.json&lt;br/&gt;secret.json · audit.log" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#475569;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="660" y="1200" width="220" height="75" as="geometry" />
+        </mxCell>
+        <mxCell id="cfg_docker" value="&lt;b&gt;Container Support&lt;/b&gt;&lt;br/&gt;Dockerfile&lt;br/&gt;docker-compose.yml&lt;br/&gt;podman-compose.yml" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#e2e8f0;strokeColor=#475569;fontSize=11;align=left;spacingLeft=8;verticalAlign=top;" parent="1" vertex="1">
+          <mxGeometry x="895" y="1200" width="200" height="75" as="geometry" />
+        </mxCell>
+
+        <!-- ══ EDGES ════════════════════════════════════════════════════════════════ -->
+
+        <!-- Browser (HR) → Employee SPA -->
+        <mxCell id="c1" value="HTTP/HTTPS" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#1d4ed8;strokeWidth=2;fontColor=#1d4ed8;fontSize=10;" parent="1" source="u_lbl2" target="fe_js" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Browser (Admin) → Admin SPA -->
+        <mxCell id="c1b" value="HTTP/HTTPS" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=2;fontColor=#7c3aed;fontSize=10;" parent="1" source="adm_lbl2" target="fe_admin_js" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Browser (Admin) → Admin Pages -->
+        <mxCell id="c1c" value="" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=1.5;dashed=1;" parent="1" source="adm_lbl2" target="fe_admin_pages" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Employee SPA → ChatController -->
+        <mxCell id="c2" value="fetch() REST" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#ea580c;strokeWidth=2;fontColor=#ea580c;fontSize=10;" parent="1" source="fe_js" target="ctrl_chat" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- Admin SPA → AdminController -->
+        <mxCell id="c2b" value="fetch() REST" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=2;fontColor=#7c3aed;fontSize=10;" parent="1" source="fe_admin_js" target="ctrl_admin" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ChatController → Services -->
+        <mxCell id="c3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_chat" target="svc_agent" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c4" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_chat" target="svc_create" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c5" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_chat" target="svc_delete" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c6" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_report" target="svc_report" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c7" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_file" target="svc_appstate" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c8" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=1.5;" parent="1" source="ctrl_vac" target="svc_support" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- AdminController → Admin services -->
+        <mxCell id="c_adm1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#a21caf;strokeWidth=1.5;" parent="1" source="ctrl_admin" target="svc_secret" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_adm2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#a21caf;strokeWidth=1.5;" parent="1" source="ctrl_admin" target="svc_restricted" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_adm3" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#a21caf;strokeWidth=1.5;" parent="1" source="ctrl_admin" target="svc_support" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- VacationCreationService → SlackNotificationService -->
+        <mxCell id="c_slack1" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#ea580c;strokeWidth=1.5;dashed=1;" parent="1" source="svc_create" target="svc_slack" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <!-- VacationDeletionService → SlackNotificationService -->
+        <mxCell id="c_slack2" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#ea580c;strokeWidth=1.5;dashed=1;" parent="1" source="svc_delete" target="svc_slack" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- SyncService → BoxSyncService -->
+        <mxCell id="c_sync_box" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=1.5;" parent="1" source="svc_sync" target="svc_box" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Analytics calls -->
+        <mxCell id="c9" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=1.5;" parent="1" source="svc_agent" target="ana_svc" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c10" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=1.5;" parent="1" source="svc_report" target="ana_svc" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c11" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#7c3aed;strokeWidth=1.5;dashed=1;" parent="1" source="ana_svc" target="ana_result" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- Infrastructure calls -->
+        <mxCell id="c12" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="svc_agent" target="infra_llm" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c13" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="ctrl_file" target="infra_reader" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c14" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="svc_create" target="infra_writer" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c15" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="svc_delete" target="infra_writer" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_admin_reader" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="ctrl_admin" target="infra_reader" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_admin_writer" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#db2777;strokeWidth=1.5;" parent="1" source="ctrl_admin" target="infra_writer" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- External calls -->
+        <mxCell id="c16" value="HTTPS / OpenAI API" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#0891b2;strokeWidth=2;fontColor=#0891b2;fontSize=10;" parent="1" source="infra_llm" target="llm_lbl" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c17" value="Read .xlsx" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=2;fontColor=#059669;fontSize=10;" parent="1" source="infra_reader" target="fs_lbl" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c18" value="Write .xlsx" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#059669;strokeWidth=2;fontColor=#059669;fontSize=10;" parent="1" source="infra_writer" target="fs_lbl" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_box_ext" value="Box SDK (JWT/CCG)" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#2563eb;strokeWidth=2;fontColor=#2563eb;fontSize=10;" parent="1" source="svc_box" target="box_lbl" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+        <mxCell id="c_slack_ext" value="HTTPS Webhook" style="edgeStyle=orthogonalEdgeStyle;strokeColor=#ea580c;strokeWidth=2;fontColor=#ea580c;fontSize=10;" parent="1" source="svc_slack" target="slack_lbl" edge="1">
+          <mxGeometry relative="1" as="geometry" />
+        </mxCell>
+
+        <!-- ══ LEGEND ══════════════════════════════════════════════════════════════ -->
+        <mxCell id="leg_box" value="" style="rounded=1;whiteSpace=wrap;html=1;fillColor=#f8fafc;strokeColor=#94a3b8;" parent="1" vertex="1">
+          <mxGeometry x="1110" y="1190" width="220" height="100" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_t" value="Legend" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=11;fontStyle=1;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1194" width="80" height="18" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_l1" value="─── HTTP / REST call" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontColor=#ea580c;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1214" width="195" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_l2" value="─── Service call (internal)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontColor=#059669;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1231" width="195" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_l3" value="─── Analytics call" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontColor=#7c3aed;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1248" width="195" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_l4" value="─── I/O adapter call" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontColor=#db2777;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1265" width="195" height="15" as="geometry" />
+        </mxCell>
+        <mxCell id="leg_l5" value="─── LLM / Box / Slack (HTTPS)" style="text;html=1;strokeColor=none;fillColor=none;align=left;fontSize=10;fontColor=#0891b2;" parent="1" vertex="1">
+          <mxGeometry x="1125" y="1282" width="195" height="15" as="geometry" />
+        </mxCell>
+      </root>
+    </mxGraphModel>
+  </diagram>
+</mxfile>

@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>Vacation Planner Assistant</title>
+    <link rel="stylesheet" th:href="@{/static/holiday_agent.css}">
+    <style>
+        /* Allow the Quick Questions section to flex-shrink and scroll
+           so the Loaded Employees section and footer buttons remain visible
+           regardless of how many chips are present.                        */
+        .sidebar-section--quick {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        #chipsContent {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,.35) rgba(255,255,255,.07);
+        }
+        #chipsContent::-webkit-scrollbar       { width: 6px; }
+        #chipsContent::-webkit-scrollbar-track { background: rgba(255,255,255,.07); border-radius: 3px; }
+        #chipsContent::-webkit-scrollbar-thumb { background: rgba(255,255,255,.35); border-radius: 3px; }
+    </style>
+</head>
+<body>
+
+<!-- Hamburger (mobile only) -->
+<button class="hamburger" id="hamburgerBtn" aria-label="Open sidebar">☰</button>
+<div class="overlay" id="overlay"></div>
+
+<!-- ── Sidebar ─────────────────────────────────────────────────────────── -->
+<aside class="sidebar" id="sidebar">
+
+    <!-- Brand header -->
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <svg width="26" height="26" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <rect x="28" y="30" width="44" height="34" rx="8" fill="white" fill-opacity="0.95"/>
+                <rect class="brand-robot-eye" x="36" y="39" width="10" height="10" rx="3" fill="#2563eb"/>
+                <rect class="brand-robot-eye" x="54" y="39" width="10" height="10" rx="3" fill="#2563eb"/>
+                <rect x="40" y="54" width="20" height="4" rx="2" fill="#93c5fd"/>
+                <rect x="46" y="20" width="8" height="10" rx="3" fill="white" fill-opacity="0.9"/>
+                <circle cx="50" cy="17" r="4" fill="#bfdbfe"/>
+                <rect class="brand-robot-arm-l" x="18" y="38" width="10" height="18" rx="5" fill="white" fill-opacity="0.8"/>
+                <rect class="brand-robot-arm-r" x="72" y="38" width="10" height="18" rx="5" fill="white" fill-opacity="0.8"/>
+                <rect x="32" y="64" width="12" height="16" rx="5" fill="white" fill-opacity="0.8"/>
+                <rect x="56" y="64" width="12" height="16" rx="5" fill="white" fill-opacity="0.8"/>
+            </svg>
+        </div>
+        <div class="sidebar-brand-text">
+            <div class="sidebar-brand-title">Vacation Planner</div>
+            <div class="sidebar-brand-sub">AI-powered leave analyser</div>
+        </div>
+    </div>
+
+    <!-- Year selector -->
+    <div class="sidebar-section--year">
+        <span class="year-label-inline">Year</span>
+        <select id="yearSelect" class="year-select"></select>
+    </div>
+
+    <!-- Quick Questions -->
+    <div class="sidebar-section--quick">
+        <div class="section-header collapsible" data-target="chipsContent">
+            <span>Quick Questions</span><span class="chevron">▾</span>
+        </div>
+        <div id="chipsContent" class="section-content">
+            <div id="quickChips" class="chips"></div>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="sidebar-footer">
+        <button class="btn-sidebar-footer" id="clearHistoryBtn" title="Clear chat history">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+            Clear
+        </button>
+        <button class="btn-sidebar-footer" id="refreshBtn" title="Refresh data">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Refresh
+        </button>
+        <button class="btn-sidebar-footer" id="resetPasswordBtn" title="Reset Password">
+            <!-- Key icon -->
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="8" cy="15" r="4"/>
+                <line x1="19" y1="4" x2="11.41" y2="11.59"/>
+                <line x1="19" y1="4" x2="21" y2="6"/>
+                <line x1="16" y1="4" x2="18" y2="6"/>
+            </svg>
+            Key
+        </button>
+    </div>
+</aside>
+
+<!-- ── Reset Password Modal ──────────────────────────────────────────────── -->
+<div class="rp-backdrop" id="rpBackdrop" role="dialog" aria-modal="true" aria-labelledby="rpTitle">
+    <div class="rp-modal">
+        <button class="rp-close" id="rpCloseBtn" aria-label="Close">&times;</button>
+        <h2 class="rp-modal-title" id="rpTitle">Reset Password</h2>
+        <p class="rp-modal-sub">Enter your current password and choose a new one.</p>
+
+        <div class="rp-field">
+            <label class="rp-label" for="rpCurrentPwd">Current Password</label>
+            <div class="rp-input-wrap">
+                <input class="rp-input" type="password" id="rpCurrentPwd" autocomplete="current-password" placeholder="Current password">
+                <button class="rp-eye" type="button" data-target="rpCurrentPwd" aria-label="Toggle visibility">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <div class="rp-field">
+            <label class="rp-label" for="rpNewPwd">New Password</label>
+            <div class="rp-input-wrap">
+                <input class="rp-input" type="password" id="rpNewPwd" autocomplete="new-password" placeholder="New password">
+                <button class="rp-eye" type="button" data-target="rpNewPwd" aria-label="Toggle visibility">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
+                </button>
+            </div>
+        </div>
+
+        <p class="rp-msg" id="rpMsg"></p>
+
+        <div class="rp-actions">
+            <button class="rp-btn-cancel" id="rpCancelBtn" type="button">Cancel</button>
+            <button class="rp-btn-submit" id="rpSubmitBtn" type="button">Update Password</button>
+        </div>
+    </div>
+</div>
+
+<!-- ── Main Area ───────────────────────────────────────────────────────── -->
+<main class="main">
+    <header class="topbar">
+        <div class="topbar-left">
+            <span class="status-dot" id="statusDot" title="LLM status"></span>
+            <div class="topbar-title-group">
+                <span class="topbar-title">Vacation Planner Assistant</span>
+                <span class="topbar-subtitle" id="topbarSubtitle">No file loaded</span>
+            </div>
+        </div>
+        <div class="topbar-actions">
+            <button class="btn-new-chat" id="newChatBtn" aria-label="New Chat">
+                <span class="topbar-btn-icon" aria-hidden="true">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>
+                    </svg>
+                </span>
+                <span class="topbar-btn-text">New Chat</span>
+            </button>
+            <a href="/logout" class="btn-signout">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+                Sign out
+            </a>
+        </div>
+    </header>
+
+    <div class="messages" id="messages"
+         th:data-greeting-name="${greetingName} ?: 'there'"
+         th:data-login-username="${loginUsername} ?: ''">
+        <div class="welcome-card" id="welcomeCard">
+            <div class="welcome-robot">
+                <svg width="90" height="100" viewBox="0 0 120 130" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <g class="wc-robot-group">
+                        <rect x="58" y="4" width="4" height="18" rx="2" fill="#3b5bdb"/>
+                        <circle class="wc-antenna-tip" cx="60" cy="4" r="5" fill="#60a5fa"/>
+                        <rect x="26" y="20" width="68" height="48" rx="14" fill="#3b5bdb"/>
+                        <rect class="wc-eye" x="36" y="34" width="18" height="18" rx="5" fill="#fff"/>
+                        <rect class="wc-eye" x="66" y="34" width="18" height="18" rx="5" fill="#fff"/>
+                        <circle cx="45" cy="43" r="6" fill="#1e3a8a"/>
+                        <circle cx="75" cy="43" r="6" fill="#1e3a8a"/>
+                        <circle cx="47" cy="40" r="2.5" fill="#93c5fd"/>
+                        <circle cx="77" cy="40" r="2.5" fill="#93c5fd"/>
+                        <rect class="wc-mouth" x="42" y="56" width="36" height="6" rx="3" fill="#93c5fd"/>
+                        <rect x="54" y="68" width="12" height="8" rx="3" fill="#2952cc"/>
+                        <rect x="18" y="76" width="84" height="46" rx="14" fill="#3b5bdb"/>
+                        <circle cx="42" cy="99" r="6" fill="#1e3a8a"/>
+                        <circle cx="60" cy="99" r="6" fill="#60a5fa"/>
+                        <circle cx="78" cy="99" r="6" fill="#1e3a8a"/>
+                        <rect x="32" y="112" width="56" height="4" rx="2" fill="#2952cc"/>
+                        <rect class="wc-arm-l" x="2" y="78" width="16" height="32" rx="8" fill="#2952cc"/>
+                        <rect class="wc-arm-r" x="102" y="78" width="16" height="32" rx="8" fill="#2952cc"/>
+                        <rect x="32" y="122" width="20" height="8" rx="4" fill="#2952cc"/>
+                        <rect x="68" y="122" width="20" height="8" rx="4" fill="#2952cc"/>
+                    </g>
+                </svg>
+            </div>
+            <h2 class="welcome-title"
+                th:text="'Hello, ' + (${greetingName} ?: 'there') + '! I\'m your Leave Assistant.'">Hello! I'm your Leave Assistant.</h2>
+            <p class="welcome-sub">
+                Ask me anything about employee holidays and leave—I'll answer strictly based<br>
+                on your Excel data. You can also add new leave entries or delete existing ones.<br>
+                Contact your administrator to upload or manage files.
+            </p>
+        </div>
+    </div>
+
+    <div class="input-wrapper">
+        <div class="input-area">
+            <textarea id="messageInput" class="message-input"
+                      placeholder="Ask about employee leave… (Enter to send)"
+                      rows="1"></textarea>
+            <button class="btn-send" id="sendBtn" aria-label="Send">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2">
+                    <line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2" fill="currentColor" stroke="none"/>
+                </svg>
+            </button>
+        </div>
+    </div>
+    <div class="input-disclaimer">
+        Answers are grounded exclusively in your Excel data — no hallucinations.
+    </div>
+</main>
+
+<script th:src="@{/static/holiday_agent.js}"></script>
+</body>
+</html>

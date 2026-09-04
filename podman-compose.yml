@@ -1,0 +1,50 @@
+---
+# podman-compose.yml — Holiday Leave Assistant
+# Usage:
+#   podman-compose -f podman-compose.yml up -d
+#   podman-compose -f podman-compose.yml down
+#
+# Requirements:
+#   pip install podman-compose          # v1.0.6+
+#   Copy .env.example → .env and fill in your values before starting.
+#
+# Notes:
+#   - Podman rootless networking: the host LLM (Ollama) must be reachable via
+#     the host-gateway address. Use LLM_BASE_URL=http://host.containers.internal:11434/v1
+#     in your .env instead of 127.0.0.1 when running rootless Podman.
+#   - SELinux: the `:Z` volume suffix relabels mounts for SELinux-enabled hosts
+#     (Fedora / RHEL / CentOS). Remove `:Z` if your host does not use SELinux.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: holiday-leave-assistant
+    image: holiday-leave-assistant:latest
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env
+    environment:
+      # Server port — must match the exposed container port
+      FLASK_PORT: "8080"
+      # Absolute paths so AppState.init() resolves dirs correctly inside the container
+      DATA_DIR: "/app/data"
+      REPORT_OUTPUT_DIR: "/app/reports"
+    volumes:
+      - ./data:/app/data:Z
+      - ./reports:/app/reports:Z
+    restart: always
+    networks:
+      - app-net
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fs http://localhost:8080/login || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  app-net:
+    driver: bridge

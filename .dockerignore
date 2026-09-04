@@ -1,0 +1,39 @@
+# ── .dockerignore — Holiday Leave Assistant ───────────────────────────────────
+# Prevents secrets, build artefacts, IDE files, and runtime data from being
+# sent to the Docker/Podman build daemon.  Keeps the build context small and
+# ensures no secrets are baked into the image.
+
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+
+# ── Runtime data (not needed at build time; mounted as volumes at runtime) ────
+data/
+reports/
+
+# ── Maven build output (rebuilt inside the builder stage) ────────────────────
+backend/target/
+
+# ── IDE and OS artefacts ──────────────────────────────────────────────────────
+.idea/
+*.iml
+.vscode/
+*.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Git metadata ──────────────────────────────────────────────────────────────
+.git/
+.gitignore
+
+# ── Other compose / deploy files (not needed inside the image) ────────────────
+docker-compose.yml
+podman-compose.yml
+
+# ── Documentation and diagrams ────────────────────────────────────────────────
+README.md
+diagrams/
+*.html

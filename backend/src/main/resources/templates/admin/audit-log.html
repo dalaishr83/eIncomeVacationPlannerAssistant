@@ -1,0 +1,410 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <title>Audit Log — Vacation Planner Assistant</title>
+    <style>
+        /*
+         * Full-viewport layout: the main area is a flex column.
+         * The table-scroll div takes whatever height is left.
+         * No fixed px heights.
+         */
+        .main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .audit-page {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 20px 16px;
+            flex: 1 1 0;
+            min-height: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .audit-page h1 { font-size: 1.4rem; margin: 0 0 16px; flex-shrink: 0; }
+
+        /* Card fills remaining height of the column */
+        .audit-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 10px; padding: 20px 24px 16px;
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .audit-card h2 {
+            font-size: 1rem; margin: 0 0 12px;
+            border-bottom: 1px solid var(--border); padding-bottom: 10px;
+            display: flex; align-items: center; gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .audit-toolbar {
+            display: flex; align-items: center; gap: 10px;
+            margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .audit-toolbar input[type=text] {
+            flex: 3; min-width: 180px; padding: 6px 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg); color: var(--text); font-size: .85rem;
+        }
+        .audit-toolbar #filterInput {
+            flex: 4; min-width: 240px;
+        }
+        .audit-toolbar select {
+            padding: 6px 10px; border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg); color: var(--text); font-size: .85rem;
+        }
+        .audit-toolbar .btn-refresh {
+            padding: 6px 14px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--text); cursor: pointer; font-size: .85rem;
+            display: inline-flex; align-items: center; gap: 5px;
+            transition: background .15s, border-color .15s;
+        }
+        .audit-toolbar .btn-refresh:hover { background: #d0d7e2; }
+        .audit-toolbar .btn-refresh:active { background: #c4cdd9 !important; border-color: var(--accent) !important; }
+        .audit-toolbar .btn-refresh.is-loading,
+        .audit-toolbar .btn-refresh.is-loading:hover,
+        .audit-toolbar .btn-refresh.is-loading:active {
+            background: #d0d7e2 !important; border-color: var(--accent) !important;
+            color: var(--text) !important; cursor: default;
+        }
+
+        #tableWrap {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .table-scroll {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: .82rem; }
+        thead th {
+            text-align: left; padding: 8px 10px;
+            background: var(--bg); color: var(--muted); font-weight: 600;
+            border-bottom: 2px solid var(--border); white-space: nowrap;
+            position: sticky; top: 0; z-index: 1;
+        }
+        tbody td { padding: 7px 10px; border-bottom: 1px solid var(--border); color: var(--text); word-break: break-word; }
+        tbody tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(42,91,215,.05); }
+
+        .badge { display: inline-block; padding: 2px 8px; border-radius: 10px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+        .badge-success { background: #d1fae5; color: #065f46; }
+        .badge-error   { background: #fee2e2; color: #991b1b; }
+        .badge-warning { background: #fef3c7; color: #92400e; }
+        .badge-info    { background: #dbeafe; color: #1e40af; }
+        .source-badge  { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: .73rem; background: var(--border); color: var(--muted); }
+
+        .empty-msg { color: var(--muted); font-size: .85rem; padding: 20px 0; text-align: center; }
+        .count-label { font-size: .8rem; color: var(--muted); margin-left: auto; }
+        .ts-cell { white-space: nowrap; color: var(--muted); font-size: .78rem; }
+        #loadingMsg { color: var(--muted); font-size: .85rem; padding: 20px 0; text-align: center; display: none; flex-shrink: 0; }
+
+        .pagination {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 8px;
+            margin-top: 10px; font-size: .82rem; color: var(--muted);
+            flex-shrink: 0;
+        }
+        .pagination-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .pg-btn {
+            padding: 4px 10px; border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--bg); color: var(--text);
+            cursor: pointer; font-size: .8rem; line-height: 1.4;
+        }
+        .pg-btn:hover:not(:disabled) { background: var(--sidebar-hover); }
+        .pg-btn:disabled { opacity: .4; cursor: default; }
+        .pg-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .pg-ellipsis { padding: 4px 6px; color: var(--muted); }
+
+        @media (max-width: 768px) {
+            .audit-page { padding: 16px 12px 12px; }
+            .audit-toolbar { gap: 8px; }
+            .audit-toolbar input[type=text] { min-width: 0; }
+            .audit-toolbar #filterInput     { flex: 1 1 100%; min-width: 0; width: 100%; }
+        }
+
+        @media (max-width: 480px) {
+            .audit-card { padding: 12px 10px 10px; }
+            thead { display: none; }
+            .table-scroll { overflow-x: visible; border: none; border-radius: 0; }
+            tbody tr {
+                display: block;
+                border: 1px solid var(--border); border-radius: 6px;
+                margin-bottom: 8px; padding: 8px 10px;
+            }
+            tbody td {
+                display: flex; justify-content: space-between; align-items: flex-start;
+                gap: 8px; padding: 3px 0; border-bottom: none; font-size: .8rem;
+            }
+            tbody td::before {
+                content: attr(data-label);
+                font-weight: 600; color: var(--muted);
+                flex-shrink: 0; min-width: 80px; font-size: .75rem;
+            }
+            .pagination { justify-content: center; }
+        }
+    </style>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <!-- ── Audit log content ──────────────────────────────────────────── -->
+    <div class="audit-page">
+        <h1>Audit Log</h1>
+
+        <div class="audit-card">
+            <h2>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="8" y1="13" x2="16" y2="13"/>
+                    <line x1="8" y1="17" x2="16" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                System Activity
+                <span class="count-label" id="countLabel"></span>
+            </h2>
+
+            <div class="audit-toolbar">
+                <input type="text" id="filterInput" placeholder="Filter by timestamp, Admin Name, employee, event, details…">
+                <select id="statusFilter">
+                    <option value="">All statuses</option>
+                    <option value="success">Success</option>
+                    <option value="error">Error</option>
+                    <option value="warning">Warning</option>
+                </select>
+                <select id="sourceFilter">
+                    <option value="">All sources</option>
+                    <option value="api">API</option>
+                    <option value="chat">Chat</option>
+                    <option value="system">System</option>
+                </select>
+                <button class="btn-refresh" id="auditRefreshBtn">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                    Refresh
+                </button>
+            </div>
+
+            <div id="loadingMsg">Loading…</div>
+            <div id="tableWrap">
+                <div class="table-scroll" id="tableScroll">
+                    <table id="auditTable">
+                        <thead>
+                            <tr>
+                                <th>Timestamp</th>
+                                <th>Event</th>
+                                <th>Admin Name</th>
+                                <th>Employee</th>
+                                <th>Details</th>
+                                <th>Status</th>
+                                <th>Source</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditBody"></tbody>
+                    </table>
+                </div>
+                <div class="empty-msg" id="emptyMsg" style="display:none;">No audit log entries found.</div>
+                <div class="pagination" id="paginationBar" style="display:none;">
+                    <span id="pageInfo"></span>
+                    <div class="pagination-controls" id="pageControls"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script th:src="@{/static/holiday_agent_admin.js}"></script>
+<script>
+(function () {
+    'use strict';
+
+    var PAGE_SIZE = 10;
+    var allEntries = [];
+    var filteredEntries = [];
+    var currentPage = 1;
+
+    function statusBadge(s) {
+        if (!s) return '';
+        var cls = s === 'success' ? 'badge-success' : s === 'error' ? 'badge-error' : s === 'warning' ? 'badge-warning' : 'badge-info';
+        return '<span class="badge ' + cls + '">' + esc(s) + '</span>';
+    }
+
+    function sourceBadge(s) {
+        return s ? '<span class="source-badge">' + esc(s) + '</span>' : '';
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function fmtTs(ts) {
+        if (!ts) return '';
+        return ts.replace('T', ' ').replace(/\.\d+/, '').replace(/[+-]\d{2}:\d{2}$/, '').replace('Z', '');
+    }
+
+    function renderPage(page) {
+        var tbody    = document.getElementById('auditBody');
+        var empty    = document.getElementById('emptyMsg');
+        var scroll   = document.getElementById('tableScroll');
+        var pagBar   = document.getElementById('paginationBar');
+        var countEl  = document.getElementById('countLabel');
+        var pageInfo = document.getElementById('pageInfo');
+        var pageCtrl = document.getElementById('pageControls');
+
+        tbody.innerHTML = '';
+
+        if (filteredEntries.length === 0) {
+            scroll.style.display = 'none';
+            empty.style.display  = 'block';
+            pagBar.style.display = 'none';
+            countEl.textContent  = '0 entries';
+            return;
+        }
+
+        scroll.style.display = '';
+        empty.style.display  = 'none';
+
+        var totalPages = Math.ceil(filteredEntries.length / PAGE_SIZE);
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        currentPage = page;
+
+        var start = (currentPage - 1) * PAGE_SIZE;
+        var end   = Math.min(start + PAGE_SIZE, filteredEntries.length);
+        var slice = filteredEntries.slice(start, end);
+
+        var rows = '';
+        for (var i = 0; i < slice.length; i++) {
+            var e = slice[i];
+            rows += '<tr>'
+                + '<td class="ts-cell" data-label="Timestamp">' + esc(fmtTs(e.timestamp)) + '</td>'
+                + '<td data-label="Event">'    + esc(e.event_type) + '</td>'
+                + '<td data-label="User">'     + esc(e.user) + '</td>'
+                + '<td data-label="Employee">' + esc(e.employee) + '</td>'
+                + '<td data-label="Details">'  + esc(e.details) + '</td>'
+                + '<td data-label="Status">'   + statusBadge(e.status) + '</td>'
+                + '<td data-label="Source">'   + sourceBadge(e.source) + '</td>'
+                + '</tr>';
+        }
+        tbody.innerHTML = rows;
+        scroll.scrollTop = 0;
+
+        countEl.textContent = filteredEntries.length + ' entr' + (filteredEntries.length === 1 ? 'y' : 'ies');
+
+        if (totalPages <= 1) { pagBar.style.display = 'none'; return; }
+        pagBar.style.display = '';
+        pageInfo.textContent = 'Showing ' + (start + 1) + '–' + end + ' of ' + filteredEntries.length;
+
+        var html = '<button class="pg-btn" id="pgPrev" ' + (currentPage === 1 ? 'disabled' : '') + '>&#8249; Prev</button>';
+        var pages = buildPageList(currentPage, totalPages);
+        for (var j = 0; j < pages.length; j++) {
+            var p = pages[j];
+            html += p === '…'
+                ? '<span class="pg-ellipsis">…</span>'
+                : '<button class="pg-btn' + (p === currentPage ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+        }
+        html += '<button class="pg-btn" id="pgNext" ' + (currentPage === totalPages ? 'disabled' : '') + '>Next &#8250;</button>';
+        pageCtrl.innerHTML = html;
+
+        var prev = document.getElementById('pgPrev');
+        var next = document.getElementById('pgNext');
+        if (prev) prev.addEventListener('click', function () { renderPage(currentPage - 1); });
+        if (next) next.addEventListener('click', function () { renderPage(currentPage + 1); });
+        pageCtrl.querySelectorAll('[data-page]').forEach(function (btn) {
+            btn.addEventListener('click', function () { renderPage(parseInt(this.getAttribute('data-page'), 10)); });
+        });
+    }
+
+    function buildPageList(current, total) {
+        if (total <= 7) { var a = []; for (var i = 1; i <= total; i++) a.push(i); return a; }
+        var pages = [], shown = {};
+        function add(n) { if (n >= 1 && n <= total && !shown[n]) { shown[n] = true; pages.push(n); } }
+        add(1); add(2); add(current - 1); add(current); add(current + 1); add(total - 1); add(total);
+        pages.sort(function (a, b) { return a - b; });
+        var result = [];
+        for (var j = 0; j < pages.length; j++) {
+            if (j > 0 && pages[j] - pages[j - 1] > 1) result.push('…');
+            result.push(pages[j]);
+        }
+        return result;
+    }
+
+    function applyFilters() {
+        var text   = document.getElementById('filterInput').value.toLowerCase();
+        var status = document.getElementById('statusFilter').value.toLowerCase();
+        var source = document.getElementById('sourceFilter').value.toLowerCase();
+
+        filteredEntries = allEntries.filter(function (e) {
+            if (status && (e.status || '').toLowerCase() !== status) return false;
+            if (source && (e.source || '').toLowerCase() !== source) return false;
+            if (text) {
+                var haystack = [fmtTs(e.timestamp), e.event_type, e.user, e.employee, e.details, e.source, e.status]
+                    .map(function (v) { return (v || '').toLowerCase(); }).join(' ');
+                if (haystack.indexOf(text) === -1) return false;
+            }
+            return true;
+        });
+        renderPage(1);
+    }
+
+    function load() {
+        document.getElementById('loadingMsg').style.display = 'block';
+        document.getElementById('tableWrap').style.display  = 'none';
+        fetch('/api/admin/audit-log')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                allEntries = data.entries || [];
+                document.getElementById('loadingMsg').style.display = 'none';
+                document.getElementById('tableWrap').style.display  = '';
+                document.getElementById('auditRefreshBtn').classList.remove('is-loading');
+                applyFilters();
+            })
+            .catch(function () {
+                document.getElementById('loadingMsg').textContent = 'Failed to load audit log.';
+                document.getElementById('auditRefreshBtn').classList.remove('is-loading');
+            });
+    }
+
+    document.getElementById('filterInput').addEventListener('input', applyFilters);
+    document.getElementById('statusFilter').addEventListener('change', applyFilters);
+    document.getElementById('sourceFilter').addEventListener('change', applyFilters);
+    document.getElementById('auditRefreshBtn').addEventListener('click', function () {
+        /* reset all filters to default */
+        document.getElementById('filterInput').value  = '';
+        document.getElementById('statusFilter').value = '';
+        document.getElementById('sourceFilter').value = '';
+
+        /* keep button in active/pressed state while loading */
+        var btn = document.getElementById('auditRefreshBtn');
+        btn.classList.add('is-loading');
+        load();
+    });
+
+    load();
+})();
+</script>
+</body>
+</html>

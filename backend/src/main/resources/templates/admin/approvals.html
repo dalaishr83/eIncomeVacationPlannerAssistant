@@ -1,0 +1,458 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <title>PC Approvals — Vacation Planner Assistant</title>
+    <style>
+        /*
+         * Full-viewport flex column — the table-scroll div takes all remaining height.
+         * No fixed px heights — the table grows/shrinks with the window.
+         */
+        .main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .approvals-page {
+            max-width: 960px;
+            margin: 0 auto;
+            padding: 24px 20px 16px;
+            flex: 1 1 0;
+            min-height: 0;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+        }
+        .approvals-page h1 { font-size: 1.4rem; margin: 0 0 16px; flex-shrink: 0; }
+
+        /* Card fills remaining viewport height */
+        .approvals-card {
+            background: var(--surface); border: 1px solid var(--border);
+            border-radius: 10px; padding: 20px 24px 16px;
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        .approvals-card h2 {
+            font-size: 1rem; margin: 0 0 12px;
+            border-bottom: 1px solid var(--border); padding-bottom: 10px;
+            display: flex; align-items: center; gap: 8px;
+            flex-shrink: 0;
+        }
+        .count-label { font-size: .8rem; color: var(--muted); margin-left: auto; }
+
+        /* ── Filter toolbar ────────────────────────────────────────────── */
+        .filter-toolbar {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 12px; flex-wrap: wrap; flex-shrink: 0;
+        }
+        .filter-toolbar input[type=text],
+        .filter-toolbar input[type=number] {
+            padding: 6px 10px;
+            border: 1px solid var(--border); border-radius: 6px;
+            background: var(--bg); color: var(--text); font-size: .83rem;
+        }
+        .filter-toolbar input[type=text] { flex: 2; min-width: 140px; }
+        .filter-toolbar #fEmployee       { flex: 4; min-width: 200px; }
+        .filter-toolbar #fStartDate,
+        .filter-toolbar #fEndDate        { min-width: calc(10ch + 20px); }
+        .filter-toolbar #fDays           { flex: 0 0 70px; width: 70px; min-width: 0; }
+        .filter-toolbar .btn-clear-filters {
+            padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border);
+            background: var(--bg); color: var(--muted); cursor: pointer; font-size: .82rem;
+            white-space: nowrap; flex-shrink: 0;
+            transition: background .15s, border-color .15s;
+        }
+        .filter-toolbar .btn-clear-filters:hover  { background: #d0d7e2; color: var(--text); }
+        .filter-toolbar .btn-clear-filters:active { background: #c4cdd9 !important; border-color: var(--accent) !important; color: var(--text) !important; }
+
+        /* Select-all row */
+        .select-all-row {
+            display: flex; align-items: center; gap: 8px;
+            margin-bottom: 8px; font-size: .85rem; color: var(--muted);
+            flex-shrink: 0;
+        }
+
+        /* ── Scrollable table area ─────────────────────────────────────── */
+        #tableWrap {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+        .table-scroll {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: auto;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+        }
+
+        table { width: 100%; border-collapse: collapse; font-size: .85rem; }
+        thead th {
+            text-align: left; padding: 8px 10px;
+            background: var(--bg); color: var(--muted); font-weight: 600;
+            border-bottom: 2px solid var(--border); white-space: nowrap;
+            position: sticky; top: 0; z-index: 1;
+        }
+        td { padding: 8px 10px; border-bottom: 1px solid var(--border); color: var(--text); }
+        tr:last-child td { border-bottom: none; }
+        tbody tr:hover { background: rgba(42,91,215,.05); }
+
+        /* ── Pagination ────────────────────────────────────────────────── */
+        .pagination {
+            display: flex; align-items: center; justify-content: space-between;
+            flex-wrap: wrap; gap: 8px;
+            margin-top: 10px; font-size: .82rem; color: var(--muted);
+            flex-shrink: 0;
+        }
+        .pagination-controls { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+        .pg-btn {
+            padding: 4px 10px; border-radius: 5px;
+            border: 1px solid var(--border);
+            background: var(--bg); color: var(--text);
+            cursor: pointer; font-size: .8rem; line-height: 1.4;
+        }
+        .pg-btn:hover:not(:disabled) { background: var(--sidebar-hover); }
+        .pg-btn:disabled { opacity: .4; cursor: default; }
+        .pg-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+        .pg-ellipsis { padding: 4px 6px; color: var(--muted); }
+
+        /* ── Action row ────────────────────────────────────────────────── */
+        .action-row { display: flex; align-items: center; gap: 12px; margin-top: 12px; flex-shrink: 0; flex-wrap: wrap; }
+        .btn-approve {
+            background: var(--accent); color: #fff; border: none;
+            border-radius: 6px; padding: 8px 18px; cursor: pointer; font-size: .85rem;
+        }
+        .btn-approve:disabled { background: #9ca3af; cursor: not-allowed; }
+        .btn-approve:hover:not(:disabled) { background: var(--accent-hover); }
+
+        .alert { padding: 10px 14px; border-radius: 6px; font-size: .85rem; display: none; flex: 1; }
+        .alert.success { background: #d1fae5; color: #065f46; }
+        .alert.error   { background: #fee2e2; color: #991b1b; }
+
+        .empty-msg { color: var(--muted); font-size: .85rem; padding: 20px 0; text-align: center; flex-shrink: 0; }
+        .no-results { color: var(--muted); font-size: .85rem; padding: 16px 10px; text-align: center; display: none; }
+
+        /* ── Responsive ────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .approvals-page { padding: 16px 12px 12px; }
+            .filter-toolbar { gap: 6px; }
+            .filter-toolbar input[type=text] { min-width: 0; }
+            .filter-toolbar #fStartDate,
+            .filter-toolbar #fEndDate        { min-width: calc(10ch + 20px); }
+        }
+        @media (max-width: 480px) {
+            .approvals-card { padding: 12px 10px 10px; }
+            thead { display: none; }
+            .table-scroll { overflow-x: visible; border: none; border-radius: 0; }
+            tbody tr {
+                display: block;
+                border: 1px solid var(--border); border-radius: 6px;
+                margin-bottom: 8px; padding: 8px 10px;
+            }
+            tbody td {
+                display: flex; justify-content: space-between; align-items: flex-start;
+                gap: 8px; padding: 3px 0; border-bottom: none; font-size: .82rem;
+            }
+            tbody td::before {
+                content: attr(data-label);
+                font-weight: 600; color: var(--muted);
+                flex-shrink: 0; min-width: 80px; font-size: .75rem;
+            }
+            tbody td:first-child::before { content: ''; min-width: 0; }
+            .pagination { justify-content: center; }
+            .action-row { flex-direction: column; align-items: stretch; }
+            .btn-approve { text-align: center; }
+        }
+    </style>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <!-- ── Approvals content ──────────────────────────────────────────── -->
+    <div class="approvals-page">
+        <h1>PC Vacation Approvals</h1>
+
+        <div class="approvals-card">
+            <h2>
+                Pending Personal Choice Holiday (PC) Entries
+                <span class="count-label" id="countLabel"></span>
+            </h2>
+
+            <!-- Empty state: no records at all (server-side) -->
+            <div th:if="${pcRecords.isEmpty()}" class="empty-msg">
+                No PC vacation entries found in the loaded file.
+            </div>
+
+            <div th:if="${!pcRecords.isEmpty()}" style="display:flex;flex-direction:column;flex:1 1 0;min-height:0;">
+
+                <!-- Filter toolbar -->
+                <div class="filter-toolbar" id="filterToolbar">
+                    <input type="text"   id="fEmployee"    placeholder="Employee name…">
+                    <input type="text"   id="fStartDate"   placeholder="Start date">
+                    <input type="text"   id="fEndDate"     placeholder="End date…">
+                    <input type="number" id="fDays" placeholder="Days" min="0" max="99">
+                    <button class="btn-clear-filters" id="btnClearFilters">Clear</button>
+                </div>
+
+                <!-- Select-all -->
+                <div class="select-all-row">
+                    <input type="checkbox" id="selectAll">
+                    <label for="selectAll">Select all visible</label>
+                </div>
+
+                <!-- Table -->
+                <div id="tableWrap">
+                    <div class="table-scroll" id="tableScroll">
+                        <table id="approvalsTable">
+                            <thead>
+                                <tr>
+                                    <th></th>
+                                    <th>Employee</th>
+                                    <th>Holiday Type</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Days</th>
+                                    <th>Year</th>
+                                </tr>
+                            </thead>
+                            <tbody id="approvalsBody">
+                                <tr th:each="rec : ${pcRecords}"
+                                    th:data-employee="${rec.employee_name}"
+                                    th:data-start="${rec.start_date}"
+                                    th:data-end="${rec.end_date}"
+                                    th:data-days="${rec.days}"
+                                    th:data-year="${rec.year}"
+                                    th:data-holiday-type="${rec.holiday_type}"
+                                    class="data-row">
+                                    <td data-label=""><input type="checkbox" class="row-check"
+                                           th:data-employee="${rec.employee_name}"
+                                           th:data-start="${rec.start_date}"
+                                           th:data-end="${rec.end_date}"></td>
+                                    <td data-label="Employee"     th:text="${rec.employee_name}"></td>
+                                    <td data-label="Holiday Type" th:text="${rec.holiday_type}"></td>
+                                    <td data-label="Start Date"   th:text="${rec.start_date}"></td>
+                                    <td data-label="End Date"     th:text="${rec.end_date}"></td>
+                                    <td data-label="Days"         th:text="${rec.days}"></td>
+                                    <td data-label="Year"         th:text="${rec.year}"></td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="no-results" id="noResults">No records match the current filters.</div>
+                    <div class="pagination" id="paginationBar" style="display:none;">
+                        <span id="pageInfo"></span>
+                        <div class="pagination-controls" id="pageControls"></div>
+                    </div>
+                </div>
+
+                <!-- Action row -->
+                <div class="action-row">
+                    <button class="btn-approve" id="approveBtn" disabled>Approve Selected as Vacation (V)</button>
+                    <div class="alert" id="approvalAlert"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</main>
+
+<script th:src="@{/static/holiday_agent_admin.js}"></script>
+<script>
+(function () {
+    'use strict';
+
+    var PAGE_SIZE = 10;
+    var allRows      = [];
+    var visibleRows  = [];
+    var currentPage  = 1;
+
+    var selectAll   = document.getElementById('selectAll');
+    var approveBtn  = document.getElementById('approveBtn');
+    var tbody       = document.getElementById('approvalsBody');
+    var noResults   = document.getElementById('noResults');
+    var pagBar      = document.getElementById('paginationBar');
+    var pageInfo    = document.getElementById('pageInfo');
+    var pageCtrl    = document.getElementById('pageControls');
+    var countLabel  = document.getElementById('countLabel');
+    var tableScroll = document.getElementById('tableScroll');
+
+    /* Guard: empty-state page has none of these */
+    if (!approveBtn) return;
+
+    allRows = Array.prototype.slice.call(tbody.querySelectorAll('tr.data-row'));
+
+    function val(id) { var el = document.getElementById(id); return el ? el.value.trim().toLowerCase() : ''; }
+
+    function updateApproveBtn() {
+        var visibleChecks   = visibleRows.map(function (tr) { return tr.querySelector('.row-check'); })
+                                         .filter(Boolean);
+        var checkedCount    = visibleChecks.filter(function (cb) { return cb.checked; }).length;
+        var visibleCount    = visibleChecks.length;
+        approveBtn.disabled = checkedCount === 0;
+        selectAll.indeterminate = checkedCount > 0 && checkedCount < visibleCount;
+        selectAll.checked       = visibleCount > 0  && checkedCount === visibleCount;
+    }
+
+    function applyFilters() {
+        var fEmp   = val('fEmployee');
+        var fStart = val('fStartDate');
+        var fEnd   = val('fEndDate');
+        var fDays  = val('fDays');
+
+        visibleRows = allRows.filter(function (tr) {
+            if (fEmp   && tr.getAttribute('data-employee').toLowerCase().indexOf(fEmp)   === -1) return false;
+            if (fStart && tr.getAttribute('data-start').toLowerCase().indexOf(fStart)     === -1) return false;
+            if (fEnd   && tr.getAttribute('data-end').toLowerCase().indexOf(fEnd)         === -1) return false;
+            if (fDays  && tr.getAttribute('data-days').toLowerCase().indexOf(fDays)       === -1) return false;
+            return true;
+        });
+        renderPage(1);
+    }
+
+    function renderPage(page) {
+        var total      = visibleRows.length;
+        var totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (page < 1) page = 1;
+        if (page > totalPages) page = totalPages;
+        currentPage = page;
+
+        var start = (currentPage - 1) * PAGE_SIZE;
+        var end   = Math.min(start + PAGE_SIZE, total);
+
+        allRows.forEach(function (tr) { tr.style.display = 'none'; });
+        visibleRows.slice(start, end).forEach(function (tr) { tr.style.display = ''; });
+
+        if (total === 0) {
+            noResults.style.display     = 'block';
+            tableScroll.style.display   = 'none';
+            pagBar.style.display        = 'none';
+            countLabel.textContent      = '0 entries';
+            updateApproveBtn();
+            return;
+        }
+        noResults.style.display   = 'none';
+        tableScroll.style.display = '';
+        tableScroll.scrollTop     = 0;
+        countLabel.textContent = total + ' entr' + (total === 1 ? 'y' : 'ies');
+
+        if (totalPages <= 1) {
+            pagBar.style.display = 'none';
+        } else {
+            pagBar.style.display = '';
+            pageInfo.textContent = 'Showing ' + (start + 1) + '–' + end + ' of ' + total;
+            buildPageControls(currentPage, totalPages);
+        }
+        updateApproveBtn();
+    }
+
+    function buildPageControls(current, total) {
+        var pages = buildPageList(current, total);
+        var html  = '<button class="pg-btn" id="pgPrev"' + (current === 1     ? ' disabled' : '') + '>&#8249; Prev</button>';
+        for (var i = 0; i < pages.length; i++) {
+            var p = pages[i];
+            html += p === '…'
+                ? '<span class="pg-ellipsis">…</span>'
+                : '<button class="pg-btn' + (p === current ? ' active' : '') + '" data-page="' + p + '">' + p + '</button>';
+        }
+        html += '<button class="pg-btn" id="pgNext"' + (current === total ? ' disabled' : '') + '>Next &#8250;</button>';
+        pageCtrl.innerHTML = html;
+
+        var prev = document.getElementById('pgPrev');
+        var next = document.getElementById('pgNext');
+        if (prev) prev.addEventListener('click', function () { renderPage(currentPage - 1); });
+        if (next) next.addEventListener('click', function () { renderPage(currentPage + 1); });
+        pageCtrl.querySelectorAll('[data-page]').forEach(function (btn) {
+            btn.addEventListener('click', function () { renderPage(parseInt(this.getAttribute('data-page'), 10)); });
+        });
+    }
+
+    function buildPageList(current, total) {
+        if (total <= 7) { var a = []; for (var i = 1; i <= total; i++) a.push(i); return a; }
+        var pages = [], shown = {};
+        function add(n) { if (n >= 1 && n <= total && !shown[n]) { shown[n] = true; pages.push(n); } }
+        add(1); add(2); add(current - 1); add(current); add(current + 1); add(total - 1); add(total);
+        pages.sort(function (a, b) { return a - b; });
+        var result = [];
+        for (var j = 0; j < pages.length; j++) {
+            if (j > 0 && pages[j] - pages[j - 1] > 1) result.push('…');
+            result.push(pages[j]);
+        }
+        return result;
+    }
+
+    selectAll.addEventListener('change', function () {
+        visibleRows.forEach(function (tr) {
+            var cb = tr.querySelector('.row-check');
+            if (cb) cb.checked = selectAll.checked;
+        });
+        updateApproveBtn();
+    });
+
+    tbody.addEventListener('change', function (e) {
+        if (e.target && e.target.classList.contains('row-check')) updateApproveBtn();
+    });
+
+    ['fEmployee', 'fStartDate', 'fEndDate', 'fDays'].forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.addEventListener('input', applyFilters);
+    });
+
+    document.getElementById('btnClearFilters').addEventListener('click', function () {
+        ['fEmployee', 'fStartDate', 'fEndDate', 'fDays'].forEach(function (id) {
+            document.getElementById(id).value = '';
+        });
+        applyFilters();
+    });
+
+    approveBtn.addEventListener('click', function () {
+        var selected = [];
+        tbody.querySelectorAll('.row-check:checked').forEach(function (cb) {
+            selected.push({
+                employee_name: cb.getAttribute('data-employee'),
+                start_date:    cb.getAttribute('data-start'),
+                end_date:      cb.getAttribute('data-end')
+            });
+        });
+        if (selected.length === 0) return;
+
+        approveBtn.disabled = true;
+        fetch('/api/admin/approvals/approve-pc', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ approvals: selected })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            var alertEl = document.getElementById('approvalAlert');
+            if (data.error) {
+                alertEl.textContent = data.error;
+                alertEl.className   = 'alert error';
+            } else {
+                alertEl.textContent = data.message + (data.errors && data.errors.length ? ' Errors: ' + data.errors.join('; ') : '');
+                alertEl.className   = 'alert success';
+                setTimeout(function () { window.location.reload(); }, 1500);
+            }
+            alertEl.style.display = 'block';
+        }).catch(function () {
+            var alertEl = document.getElementById('approvalAlert');
+            alertEl.textContent   = 'Request failed. Please try again.';
+            alertEl.className     = 'alert error';
+            alertEl.style.display = 'block';
+            approveBtn.disabled   = false;
+        });
+    });
+
+    applyFilters();
+})();
+</script>
+</body>
+</html>

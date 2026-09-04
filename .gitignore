@@ -1,0 +1,35 @@
+# ── Secrets ───────────────────────────────────────────────────────────────────
+.env
+
+# ── Runtime data (uploaded files and generated reports) ───────────────────────
+data/
+reports/
+
+# ── Maven build output ────────────────────────────────────────────────────────
+backend/target/
+backend/.mvn/wrapper/maven-wrapper.jar
+
+# ── IDE and OS files ──────────────────────────────────────────────────────────
+.bob/
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+*.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Java ──────────────────────────────────────────────────────────────────────
+*.class
+*.jar
+*.war
+*.ear
+hs_err_pid*
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── Podman / Docker artefacts ─────────────────────────────────────────────────
+*.pid

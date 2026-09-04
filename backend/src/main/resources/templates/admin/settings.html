@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <title>Admin Settings — Vacation Planner Assistant</title>
+    <style>
+        /* ── Page shell — flex column to fill viewport ──────────────────── */
+        .main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-page {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+            overflow: hidden;
+        }
+
+        .settings-page h1 {
+            font-size: 1.3rem; font-weight: 700;
+            color: var(--text); margin: 0 0 16px 0;
+            flex-shrink: 0;
+        }
+
+        /* ── Top row: two cards side by side ─────────────────────────────── */
+        .settings-top-row {
+            display: flex;
+            gap: 14px;
+            flex-shrink: 0;
+            margin-bottom: 14px;
+            align-items: flex-start;
+        }
+
+        .settings-top-row .sc-card {
+            flex: 1 1 0;
+            min-width: 0;
+            margin-bottom: 0;
+        }
+
+        /* ── Role management card — grows to fill remaining space ─────────── */
+        .settings-roles-row {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-roles-row .sc-card {
+            flex: 1 1 0;
+            min-height: 0;
+            margin-bottom: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: visible;
+        }
+
+        .settings-roles-row .sc-card.open .sc-body {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-roles-row .sc-body-inner {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-roles-row .rm-layout {
+            flex: 1 1 0;
+            min-height: 0;
+            align-items: stretch;
+        }
+
+        .settings-roles-row .rm-controls {
+            align-self: center;
+            padding-top: 0;
+        }
+
+        .settings-roles-row .rm-panel {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .settings-roles-row .rm-list {
+            flex: 1 1 0;
+            max-height: none;
+            min-height: 0;
+        }
+
+        /* ── Collapsible card ────────────────────────────────────────────── */
+        .sc-card {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 10px;
+            margin-bottom: 14px;
+            overflow: hidden;
+        }
+
+        .sc-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px;
+            cursor: pointer;
+            user-select: none;
+            gap: 10px;
+            transition: background .12s;
+        }
+        .sc-header:hover { background: var(--bg); }
+
+        .sc-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+        .sc-icon {
+            width: 30px; height: 30px; border-radius: 7px;
+            background: rgba(42,91,215,.1);
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0; color: var(--accent);
+        }
+
+        .sc-title {
+            font-size: .92rem; font-weight: 700; color: var(--text);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+        .sc-subtitle { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+
+        .sc-chevron {
+            color: var(--muted); flex-shrink: 0;
+            transition: transform .22s ease;
+        }
+        .sc-card.open .sc-chevron { transform: rotate(180deg); }
+
+        .sc-body {
+            display: none;
+            padding: 0 18px 18px;
+            border-top: 1px solid var(--border);
+        }
+        .sc-card.open .sc-body { display: block; }
+        .sc-body-inner { padding-top: 16px; }
+
+        /* ── Vacation type rows ───────────────────────────────────────────── */
+        .type-row {
+            display: flex; align-items: center; gap: 10px;
+            padding: 7px 0; border-bottom: 1px solid var(--border);
+        }
+        .type-row:last-child { border-bottom: none; }
+        .type-code  { font-weight: 700; width: 32px; font-size: .82rem; color: var(--text); flex-shrink: 0; }
+        .type-label { flex: 1; color: var(--muted); font-size: .84rem; }
+        .type-toggle { margin-left: auto; flex-shrink: 0; cursor: pointer; }
+
+        /* ── Password sub-sections ───────────────────────────────────────── */
+        .pw-section { margin-bottom: 18px; }
+        .pw-section:last-child { margin-bottom: 0; }
+        .pw-section-title {
+            font-size: .82rem; font-weight: 700; color: var(--text);
+            margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;
+        }
+        .pw-section-title::before {
+            content: '';
+            display: inline-block; width: 3px; height: 14px;
+            background: var(--accent); border-radius: 2px; flex-shrink: 0;
+        }
+        .pw-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+        /* ── Field rows ──────────────────────────────────────────────────── */
+        .field-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+        .field-row label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+        .field-row select,
+        .field-row input[type=password] {
+            border: 1px solid var(--border); border-radius: 6px;
+            padding: 7px 10px; font-size: .84rem;
+            width: 100%; max-width: 340px;
+            background: var(--bg); color: var(--text);
+            transition: border-color .15s;
+        }
+        .field-row select:focus,
+        .field-row input[type=password]:focus {
+            outline: none; border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(42,91,215,.1);
+        }
+
+        /* ── Buttons ─────────────────────────────────────────────────────── */
+        .btn-save {
+            background: var(--accent); color: #fff;
+            border: none; border-radius: 6px;
+            padding: 8px 18px; cursor: pointer;
+            font-size: .84rem; font-weight: 600;
+            transition: background .12s;
+        }
+        .btn-save:hover { background: var(--accent-hover); }
+        .btn-save:active { transform: scale(.98); }
+
+        /* ── Alert banners ───────────────────────────────────────────────── */
+        .alert {
+            padding: 9px 13px; border-radius: 6px;
+            font-size: .83rem; margin-top: 10px; display: none;
+        }
+        .alert.success { background: #d1fae5; color: #065f46; }
+        .alert.error   { background: #fee2e2; color: #991b1b; }
+
+        /* ── Description text ────────────────────────────────────────────── */
+        .sc-desc { font-size: .82rem; color: var(--muted); margin: 0 0 14px 0; line-height: 1.5; }
+
+        /* ── Role management dual-panel layout ───────────────────────────── */
+        .rm-layout { display: flex; align-items: flex-start; gap: 10px; }
+
+        .rm-panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+        .rm-panel-label {
+            font-size: .78rem; font-weight: 700; color: var(--muted);
+            margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: .05em;
+        }
+
+        .rm-list {
+            list-style: none; margin: 0; padding: 0;
+            border: 1px solid var(--border); border-radius: 6px;
+            min-height: 96px; max-height: min(30vh, 220px);
+            overflow-y: auto; background: var(--bg);
+            scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+        }
+        .rm-list::-webkit-scrollbar { width: 5px; }
+        .rm-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+        .rm-list li {
+            display: flex; align-items: center; gap: 8px;
+            padding: 7px 10px; font-size: .83rem; color: var(--text);
+            cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s;
+        }
+        .rm-list li:last-child { border-bottom: none; }
+        .rm-list li:hover { background: rgba(42,91,215,.06); }
+        .rm-list li.selected { background: rgba(42,91,215,.1); color: var(--accent); font-weight: 600; }
+        .rm-list li .rm-emp-dot {
+            width: 7px; height: 7px; border-radius: 50%;
+            background: var(--muted); flex-shrink: 0; transition: background .1s;
+        }
+        .rm-list li.selected .rm-emp-dot { background: var(--accent); }
+        .rm-list li.admin-item .rm-emp-dot { background: #7c3aed; }
+
+        .rm-list-empty {
+            display: flex; align-items: center; justify-content: center;
+            min-height: 88px; font-size: .8rem; color: var(--muted);
+            font-style: italic; text-align: center; padding: 12px;
+        }
+
+        /* ── Middle controls ─────────────────────────────────────────────── */
+        .rm-controls {
+            display: flex; flex-direction: column; align-items: center;
+            justify-content: center; gap: 8px;
+            padding-top: 24px; flex-shrink: 0;
+        }
+
+        .rm-btn {
+            width: 36px; height: 36px; border-radius: 8px;
+            border: 1px solid var(--border); background: var(--bg); color: var(--text);
+            cursor: pointer; display: flex; align-items: center; justify-content: center;
+            transition: background .12s, border-color .12s, color .12s; font-size: .8rem;
+        }
+        .rm-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .rm-btn:disabled { opacity: .35; cursor: not-allowed; }
+        .rm-btn.rm-btn-promote { background: var(--accent); border-color: var(--accent); color: #fff; }
+        .rm-btn.rm-btn-promote:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+        .rm-btn.rm-btn-promote:disabled { background: var(--border); border-color: var(--border); color: var(--muted); }
+
+        /* ── Tablet: keep side-by-side but allow wrap ───────────────────── */
+        @media (max-width: 768px) {
+            .settings-top-row {
+                flex-wrap: wrap;
+            }
+            .settings-top-row .sc-card {
+                flex: 1 1 calc(50% - 7px);
+                min-width: 240px;
+            }
+        }
+
+        /* ── Mobile: stack everything ────────────────────────────────────── */
+        @media (max-width: 600px) {
+            .main { overflow-y: auto; }
+            .settings-page {
+                overflow: visible;
+                flex: unset;
+            }
+            .settings-top-row {
+                flex-direction: column;
+                gap: 14px;
+            }
+            .settings-top-row .sc-card {
+                flex: unset;
+                width: 100%;
+                min-width: 0;
+            }
+            .settings-roles-row {
+                flex: unset;
+            }
+            .settings-roles-row .sc-card {
+                flex: unset;
+                display: block;
+                overflow: hidden;
+            }
+            .settings-roles-row .sc-card.open .sc-body {
+                flex: unset;
+                display: block;
+                overflow: visible;
+            }
+            .settings-roles-row .sc-body-inner {
+                flex: unset;
+                display: block;
+                overflow: visible;
+            }
+            .settings-roles-row .rm-layout {
+                flex: unset;
+                display: flex;
+                flex-direction: column;
+                align-items: stretch;
+                gap: 12px;
+            }
+            .settings-roles-row .rm-controls {
+                align-self: unset;
+                width: 100%;
+                padding-top: 0;
+                flex-direction: row;
+                justify-content: center;
+            }
+            .settings-roles-row .rm-panel {
+                flex: unset;
+                width: 100%;
+                min-height: unset;
+                display: block;
+            }
+            .settings-roles-row .rm-list {
+                flex: unset;
+                min-height: 96px;
+                max-height: min(25vh, 180px);
+            }
+        }
+
+        @media (max-width: 480px) {
+            .settings-page { padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px)); }
+            .settings-page h1 { font-size: 1.1rem; margin-bottom: 12px; }
+            .sc-header { padding: 12px 14px; }
+            .sc-body  { padding: 0 14px 14px; }
+            .field-row select,
+            .field-row input[type=password] { max-width: 100%; }
+            .settings-roles-row .rm-list { max-height: min(22vh, 160px); }
+            .rm-btn { width: 32px; height: 32px; }
+        }
+    </style>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <!-- ── Settings content ──────────────────────────────────────────── -->
+    <div class="settings-page">
+        <h1>Admin Settings</h1>
+
+        <!-- ── Top row: Card 1 + Card 2 side by side ─────────────────────── -->
+        <div class="settings-top-row">
+
+        <!-- ── Card 1: Restricted Vacation Types ─────────────────────────── -->
+        <div class="sc-card" id="card-restricted">
+            <div class="sc-header" data-target="card-restricted">
+                <div class="sc-header-left">
+                    <div class="sc-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="4.93" y1="4.93" x2="19.07" y2="19.07"/></svg>
+                    </div>
+                    <div>
+                        <div class="sc-title">Restricted Vacation Types</div>
+                        <div class="sc-subtitle">Disable types employees can request</div>
+                    </div>
+                </div>
+                <svg class="sc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="sc-body">
+                <div class="sc-body-inner">
+                    <p class="sc-desc">Checked types are <strong>disabled</strong> — employees cannot request them and they are hidden from the UI.</p>
+                    <div id="typeList">
+                        <div th:each="vt : ${vacationTypes}" class="type-row">
+                            <span class="type-code" th:text="${vt.code}">V</span>
+                            <span class="type-label" th:text="${vt.label}">Vacation</span>
+                            <input type="checkbox" class="type-toggle"
+                                   th:value="${vt.code}"
+                                   th:checked="${restrictedTypes.contains(vt.code)}"
+                                   th:id="'chk_' + ${vt.code}">
+                            <label th:for="'chk_' + ${vt.code}" style="font-size:.78rem;color:var(--muted);flex-shrink:0;">Restrict</label>
+                        </div>
+                    </div>
+                    <button class="btn-save" id="saveRestrictedBtn" style="margin-top:16px;">Save Restricted Types</button>
+                    <div class="alert" id="restrictedAlert"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Card 2: Password Reset ─────────────────────────────────────── -->
+        <div class="sc-card" id="card-password">
+            <div class="sc-header" data-target="card-password">
+                <div class="sc-header-left">
+                    <div class="sc-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                    </div>
+                    <div>
+                        <div class="sc-title">Password Reset</div>
+                        <div class="sc-subtitle">Update admin or employee account passwords</div>
+                    </div>
+                </div>
+                <svg class="sc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="sc-body">
+                <div class="sc-body-inner">
+
+                    <!-- Admin account -->
+                    <div class="pw-section">
+                        <p class="pw-section-title">Admin Account</p>
+                        <div class="field-row">
+                            <label for="adminSelect">Admin User</label>
+                            <select id="adminSelect">
+                                <option value="">— Loading admins… —</option>
+                            </select>
+                        </div>
+                        <div class="field-row">
+                            <label for="adminNewPassword">New Password (min 6 chars)</label>
+                            <input type="password" id="adminNewPassword" placeholder="Enter new admin password" autocomplete="new-password">
+                        </div>
+                        <button class="btn-save" id="resetAdminPasswordBtn">Reset Admin Password</button>
+                        <div class="alert" id="adminPasswordAlert"></div>
+                    </div>
+
+                    <hr class="pw-divider">
+
+                    <!-- Employee accounts -->
+                    <div class="pw-section">
+                        <p class="pw-section-title">Employee Account</p>
+                        <div class="field-row">
+                            <label for="employeeSelect">Employee</label>
+                            <select id="employeeSelect">
+                                <option value="">— Loading employees… —</option>
+                            </select>
+                        </div>
+                        <div class="field-row">
+                            <label for="employeeNewPassword">New Password (min 6 chars)</label>
+                            <input type="password" id="employeeNewPassword" placeholder="Enter new employee password" autocomplete="new-password">
+                        </div>
+                        <button class="btn-save" id="resetEmployeePasswordBtn">Reset Employee Password</button>
+                        <div class="alert" id="employeePasswordAlert"></div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+
+        </div><!-- /.settings-top-row -->
+
+        <!-- ── Card 3: Role Management — full width, fills remaining height ── -->
+        <div class="settings-roles-row">
+        <div class="sc-card open" id="card-roles">
+            <div class="sc-header" data-target="card-roles">
+                <div class="sc-header-left">
+                    <div class="sc-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    </div>
+                    <div>
+                        <div class="sc-title">Role Management</div>
+                        <div class="sc-subtitle">Promote employees to the Admin role</div>
+                    </div>
+                </div>
+                <svg class="sc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="sc-body">
+                <div class="sc-body-inner">
+                    <p class="sc-desc">Select one or more employees from the left panel and use the arrow button to promote them to the <strong>Admin</strong> role. Promoted employees will appear in the right panel.</p>
+
+                    <div class="rm-layout">
+
+                        <!-- Left panel: all employees -->
+                        <div class="rm-panel">
+                            <p class="rm-panel-label">Employees</p>
+                            <ul class="rm-list" id="rmEmployeeList">
+                                <li><span class="rm-list-empty">Loading employees…</span></li>
+                            </ul>
+                        </div>
+
+                        <!-- Middle controls -->
+                        <div class="rm-controls">
+                            <button class="rm-btn rm-btn-promote" id="rmPromoteBtn" disabled title="Promote selected to Admin">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"/></svg>
+                            </button>
+                            <button class="rm-btn" id="rmDemoteBtn" disabled title="Remove Admin role">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"/></svg>
+                            </button>
+                        </div>
+
+                        <!-- Right panel: admins -->
+                        <div class="rm-panel">
+                            <p class="rm-panel-label">Admins</p>
+                            <ul class="rm-list" id="rmAdminList">
+                                <li><span class="rm-list-empty">No admins promoted yet</span></li>
+                            </ul>
+                        </div>
+
+                    </div><!-- /.rm-layout -->
+
+                    <div class="alert" id="rmAlert" style="margin-top:12px;"></div>
+                </div>
+            </div>
+        </div>
+        </div><!-- /.settings-roles-row -->
+
+    </div><!-- /.settings-page -->
+</main>
+
+<script th:src="@{/static/holiday_agent_admin.js}"></script>
+<script>
+(function () {
+    'use strict';
+
+    // ── Collapsible cards ─────────────────────────────────────────────────
+    document.querySelectorAll('.sc-header').forEach(function (header) {
+        header.addEventListener('click', function () {
+            var card = document.getElementById(header.getAttribute('data-target'));
+            if (!card) return;
+            card.classList.toggle('open');
+        });
+    });
+
+    // ── Role Management widget ────────────────────────────────────────────
+
+    var rmEmployees = [];
+    var rmAdmins    = [];
+
+    var rmEmployeeList = document.getElementById('rmEmployeeList');
+    var rmAdminList    = document.getElementById('rmAdminList');
+    var rmPromoteBtn   = document.getElementById('rmPromoteBtn');
+    var rmDemoteBtn    = document.getElementById('rmDemoteBtn');
+
+    function rmLoadEmployees() {
+        Promise.all([
+            fetch('/api/admin/settings/employee-credentials').then(function (r) { return r.json(); }),
+            fetch('/api/admin/settings/admin-credentials').then(function (r) { return r.json(); })
+        ])
+        .then(function (results) {
+            rmEmployees = results[0].employees || [];
+            rmAdmins    = results[1].admins    || [];
+            rmRender();
+        })
+        .catch(function () {
+            rmEmployeeList.innerHTML = '<li><span class="rm-list-empty">Failed to load employees</span></li>';
+        });
+    }
+
+    function rmRender() {
+        rmRenderList(rmEmployeeList, rmEmployees, 'employee');
+        rmRenderList(rmAdminList,    rmAdmins,    'admin');
+        rmSyncButtons();
+    }
+
+    function rmRenderList(ulEl, items, panel) {
+        if (items.length === 0) {
+            var emptyText = panel === 'admin' ? 'No admins promoted yet' : 'No employees loaded';
+            ulEl.innerHTML = '<li><span class="rm-list-empty">' + emptyText + '</span></li>';
+            return;
+        }
+        ulEl.innerHTML = '';
+        items.forEach(function (emp) {
+            var li = document.createElement('li');
+            if (panel === 'admin') li.classList.add('admin-item');
+
+            var dot = document.createElement('span');
+            dot.className = 'rm-emp-dot';
+            li.appendChild(dot);
+
+            var nameSpan = document.createElement('span');
+            nameSpan.textContent = emp.employee_name
+                ? emp.employee_name + ' (' + emp.username + ')'
+                : emp.username;
+            li.appendChild(nameSpan);
+
+            li.addEventListener('click', function () {
+                li.classList.toggle('selected');
+                rmSyncButtons();
+            });
+
+            ulEl.appendChild(li);
+        });
+    }
+
+    function rmSyncButtons() {
+        var empSelected   = rmEmployeeList.querySelectorAll('li.selected').length;
+        var adminSelected = rmAdminList.querySelectorAll('li.selected').length;
+        rmPromoteBtn.disabled = empSelected === 0;
+        rmDemoteBtn.disabled  = adminSelected === 0;
+    }
+
+    function rmGetSelected(ulEl, stateArr) {
+        var result = [];
+        ulEl.querySelectorAll('li.selected').forEach(function (li) {
+            var idx = Array.prototype.indexOf.call(ulEl.querySelectorAll('li'), li);
+            if (idx >= 0 && idx < stateArr.length) result.push(stateArr[idx]);
+        });
+        return result;
+    }
+
+    rmPromoteBtn.addEventListener('click', function () {
+        var toPromote = rmGetSelected(rmEmployeeList, rmEmployees);
+        if (toPromote.length === 0) return;
+        rmPromoteBtn.disabled = true;
+        rmDemoteBtn.disabled  = true;
+        fetch('/api/admin/settings/promote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usernames: toPromote.map(function (e) { return e.username; }) })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) {
+                rmShowAlert('rmAlert', data.error, false);
+                rmSyncButtons();
+            } else {
+                var msg = data.message + (data.errors && data.errors.length ? ' Errors: ' + data.errors.join('; ') : '');
+                rmLoadEmployees();
+                rmShowAlert('rmAlert', msg, true);
+            }
+        })
+        .catch(function () {
+            rmShowAlert('rmAlert', 'Request failed. Role change not saved.', false);
+            rmSyncButtons();
+        });
+    });
+
+    rmDemoteBtn.addEventListener('click', function () {
+        var toDemote = rmGetSelected(rmAdminList, rmAdmins);
+        if (toDemote.length === 0) return;
+        rmPromoteBtn.disabled = true;
+        rmDemoteBtn.disabled  = true;
+        fetch('/api/admin/settings/demote', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ usernames: toDemote.map(function (e) { return e.username; }) })
+        })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.error) {
+                rmShowAlert('rmAlert', data.error, false);
+                rmSyncButtons();
+            } else {
+                var msg = data.message + (data.errors && data.errors.length ? ' Errors: ' + data.errors.join('; ') : '');
+                rmLoadEmployees();
+                rmShowAlert('rmAlert', msg, true);
+            }
+        })
+        .catch(function () {
+            rmShowAlert('rmAlert', 'Request failed. Role change not saved.', false);
+            rmSyncButtons();
+        });
+    });
+
+    function rmShowAlert(id, msg, success) {
+        var el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'alert ' + (success ? 'success' : 'error');
+        el.style.display = 'block';
+        setTimeout(function () { el.style.display = 'none'; }, 5000);
+    }
+
+    rmLoadEmployees();
+
+    // ── Load employee credentials into the dropdown ───────────────────────
+    function loadEmployeeDropdown() {
+        fetch('/api/admin/settings/employee-credentials')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var sel = document.getElementById('employeeSelect');
+                var employees = data.employees || [];
+                sel.innerHTML = '';
+                if (employees.length === 0) {
+                    sel.innerHTML = '<option value="">— No employees loaded —</option>';
+                    return;
+                }
+                sel.innerHTML = '<option value="">— Select an employee —</option>';
+                employees.forEach(function (emp) {
+                    var opt = document.createElement('option');
+                    opt.value = emp.username;
+                    opt.textContent = emp.employee_name
+                        ? emp.employee_name + ' (' + emp.username + ')'
+                        : emp.username;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function () {
+                document.getElementById('employeeSelect').innerHTML =
+                    '<option value="">— Failed to load employees —</option>';
+            });
+    }
+    loadEmployeeDropdown();
+
+    // ── Load admin credentials into the dropdown ──────────────────────────
+    function loadAdminDropdown() {
+        fetch('/api/admin/settings/admin-credentials')
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                var sel = document.getElementById('adminSelect');
+                var admins = data.admins || [];
+                sel.innerHTML = '';
+                if (admins.length === 0) {
+                    sel.innerHTML = '<option value="">— No admins found —</option>';
+                    return;
+                }
+                sel.innerHTML = '<option value="">— Select an admin —</option>';
+                admins.forEach(function (adm) {
+                    var opt = document.createElement('option');
+                    opt.value = adm.username;
+                    opt.textContent = adm.employee_name
+                        ? adm.employee_name + ' (' + adm.username + ')'
+                        : adm.username;
+                    sel.appendChild(opt);
+                });
+            })
+            .catch(function () {
+                document.getElementById('adminSelect').innerHTML =
+                    '<option value="">— Failed to load admins —</option>';
+            });
+    }
+    loadAdminDropdown();
+
+    // ── Save restricted types ─────────────────────────────────────────────
+    document.getElementById('saveRestrictedBtn').addEventListener('click', function () {
+        var checked = [];
+        document.querySelectorAll('.type-toggle:checked').forEach(function (cb) { checked.push(cb.value); });
+        fetch('/api/admin/settings/restricted-types', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ restricted_types: checked })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            showAlert('restrictedAlert', data.error ? data.error : data.message, !data.error);
+        }).catch(function () { showAlert('restrictedAlert', 'Request failed.', false); });
+    });
+
+    // ── Reset admin password ──────────────────────────────────────────────
+    document.getElementById('resetAdminPasswordBtn').addEventListener('click', function () {
+        var username = document.getElementById('adminSelect').value;
+        var pwd      = document.getElementById('adminNewPassword').value;
+        if (!username) { showAlert('adminPasswordAlert', 'Please select an admin user.', false); return; }
+        if (!pwd || pwd.length < 6) { showAlert('adminPasswordAlert', 'Password must be at least 6 characters.', false); return; }
+        fetch('/api/admin/settings/password-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: username, new_password: pwd })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            showAlert('adminPasswordAlert', data.error ? data.error : data.message, !data.error);
+            if (!data.error) document.getElementById('adminNewPassword').value = '';
+        }).catch(function () { showAlert('adminPasswordAlert', 'Request failed.', false); });
+    });
+
+    // ── Reset employee password ───────────────────────────────────────────
+    document.getElementById('resetEmployeePasswordBtn').addEventListener('click', function () {
+        var username = document.getElementById('employeeSelect').value;
+        var pwd      = document.getElementById('employeeNewPassword').value;
+        if (!username) { showAlert('employeePasswordAlert', 'Please select an employee.', false); return; }
+        if (!pwd || pwd.length < 6) { showAlert('employeePasswordAlert', 'Password must be at least 6 characters.', false); return; }
+        fetch('/api/admin/settings/password-reset', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ role: username, new_password: pwd })
+        }).then(function (r) { return r.json(); }).then(function (data) {
+            showAlert('employeePasswordAlert', data.error ? data.error : data.message, !data.error);
+            if (!data.error) document.getElementById('employeeNewPassword').value = '';
+        }).catch(function () { showAlert('employeePasswordAlert', 'Request failed.', false); });
+    });
+
+    // ── Shared alert helper ───────────────────────────────────────────────
+    function showAlert(id, msg, success) {
+        var el = document.getElementById(id);
+        el.textContent = msg;
+        el.className = 'alert ' + (success ? 'success' : 'error');
+        el.style.display = 'block';
+        setTimeout(function () { el.style.display = 'none'; }, 5000);
+    }
+})();
+</script>
+</body>
+</html>
