@@ -35,9 +35,9 @@ import java.util.*;
  * (e.g. {@code "Bengaluru, Mysore"}).
  */
 @Component
-public class HolidayMasterExcelParser {
+public class IndianHolidayMasterExcelParser {
 
-    private static final Logger log = LoggerFactory.getLogger(HolidayMasterExcelParser.class);
+    private static final Logger log = LoggerFactory.getLogger(IndianHolidayMasterExcelParser.class);
 
     /**
      * Parse the given Holiday Master Excel file and return a map of
@@ -54,18 +54,18 @@ public class HolidayMasterExcelParser {
         Map<String, List<LocalDate>> result = new LinkedHashMap<>();
         for (String v : cityValues) result.put(v, new ArrayList<>());
 
-        log.info("=== HolidayMasterExcelParser: START parsing '{}' ===", filePath);
-        log.info("HolidayMasterExcelParser: configured city-group values: {}", cityValues);
+        log.info("=== IndianHolidayMasterExcelParser: START parsing '{}' ===", filePath);
+        log.info("IndianHolidayMasterExcelParser: configured city-group values: {}", cityValues);
 
         try (FileInputStream fis = new FileInputStream(filePath);
              XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
 
             Sheet sheet = findBestSheet(workbook);
             if (sheet == null) {
-                log.warn("HolidayMasterExcelParser: no usable sheet found in {}", filePath);
+                log.warn("IndianHolidayMasterExcelParser: no usable sheet found in {}", filePath);
                 return result;
             }
-            log.info("HolidayMasterExcelParser: using sheet '{}' (rows={})", sheet.getSheetName(), sheet.getLastRowNum());
+            log.info("IndianHolidayMasterExcelParser: using sheet '{}' (rows={})", sheet.getSheetName(), sheet.getLastRowNum());
 
             // Dump first 3 rows for diagnostics
             for (int dr = 0; dr <= Math.min(2, sheet.getLastRowNum()); dr++) {
@@ -81,31 +81,31 @@ public class HolidayMasterExcelParser {
             // Step 1 — find the header row and the date column
             HeaderInfo info = detectHeaderAndDateCol(sheet, cityValues);
             if (info == null) {
-                log.warn("HolidayMasterExcelParser: could not detect header/date column in {}", filePath);
+                log.warn("IndianHolidayMasterExcelParser: could not detect header/date column in {}", filePath);
                 return result;
             }
-            log.info("HolidayMasterExcelParser: selected headerRow={} dateCol={} cityColCount={}",
+            log.info("IndianHolidayMasterExcelParser: selected headerRow={} dateCol={} cityColCount={}",
                     info.headerRowIdx, info.dateColIdx, info.cityCols.size());
-            log.info("HolidayMasterExcelParser: city columns found in header: {}", info.cityCols);
+            log.info("IndianHolidayMasterExcelParser: city columns found in header: {}", info.cityCols);
 
             if (info.cityCols.isEmpty()) {
-                log.warn("HolidayMasterExcelParser: no non-empty columns in header row besides the date column");
+                log.warn("IndianHolidayMasterExcelParser: no non-empty columns in header row besides the date column");
                 return result;
             }
 
             // Step 2 — match city columns to city-group values
             Map<String, List<Integer>> groupToCols = buildGroupToColsMap(cityValues, info.cityCols);
-            log.info("HolidayMasterExcelParser: city-group → column mapping: {}", groupToCols);
+            log.info("IndianHolidayMasterExcelParser: city-group → column mapping: {}", groupToCols);
 
             int unmappedGroups = 0;
             for (Map.Entry<String, List<Integer>> e : groupToCols.entrySet()) {
                 if (e.getValue().isEmpty()) {
-                    log.warn("HolidayMasterExcelParser: city-group '{}' matched NO columns — check header cell vs indian-city.json value", e.getKey());
+                    log.warn("IndianHolidayMasterExcelParser: city-group '{}' matched NO columns — check header cell vs indian-city.json value", e.getKey());
                     unmappedGroups++;
                 }
             }
             if (unmappedGroups == groupToCols.size()) {
-                log.warn("HolidayMasterExcelParser: ALL city-groups unmatched — no holidays will be extracted");
+                log.warn("IndianHolidayMasterExcelParser: ALL city-groups unmatched — no holidays will be extracted");
             }
 
             // Step 3 — scan data rows
@@ -120,7 +120,7 @@ public class HolidayMasterExcelParser {
                 if (date == null) {
                     String rawCell = getCellString(row.getCell(info.dateColIdx));
                     if (!rawCell.trim().isEmpty()) {
-                        log.debug("HolidayMasterExcelParser: row[{}] col[{}] = '{}' — not a recognisable date, skipping",
+                        log.debug("IndianHolidayMasterExcelParser: row[{}] col[{}] = '{}' — not a recognisable date, skipping",
                                 r, info.dateColIdx, rawCell);
                     }
                     continue;
@@ -135,22 +135,22 @@ public class HolidayMasterExcelParser {
                             List<LocalDate> dates = result.get(groupKey);
                             if (dates != null && !dates.contains(date)) {
                                 dates.add(date);
-                                log.debug("HolidayMasterExcelParser: holiday {} → city-group '{}'", date, groupKey);
+                                log.debug("IndianHolidayMasterExcelParser: holiday {} → city-group '{}'", date, groupKey);
                             }
                             break; // one match per group per row is enough
                         }
                     }
                 }
             }
-            log.info("HolidayMasterExcelParser: scanned {} data rows, parsed {} date rows", rowsScanned, datesFound);
+            log.info("IndianHolidayMasterExcelParser: scanned {} data rows, parsed {} date rows", rowsScanned, datesFound);
         }
 
         // Log summary
-        log.info("=== HolidayMasterExcelParser: RESULT SUMMARY ===");
+        log.info("=== IndianHolidayMasterExcelParser: RESULT SUMMARY ===");
         for (Map.Entry<String, List<LocalDate>> e : result.entrySet()) {
             log.info("  city-group '{}' → {} holiday dates: {}", e.getKey(), e.getValue().size(), e.getValue());
         }
-        log.info("=== HolidayMasterExcelParser: END ===");
+        log.info("=== IndianHolidayMasterExcelParser: END ===");
         return result;
     }
 
@@ -207,7 +207,7 @@ public class HolidayMasterExcelParser {
                     }
                 }
 
-                log.debug("HolidayMasterExcelParser: candidate headerRow={} dateCol={} cityColCount={} score={}",
+                log.debug("IndianHolidayMasterExcelParser: candidate headerRow={} dateCol={} cityColCount={} score={}",
                         r, c, cityCols.size(), score);
 
                 if (score > bestScore) {
@@ -221,7 +221,7 @@ public class HolidayMasterExcelParser {
         }
 
         if (best != null) {
-            log.info("HolidayMasterExcelParser: selected headerRow={} dateCol={} cityColCount={} score={}",
+            log.info("IndianHolidayMasterExcelParser: selected headerRow={} dateCol={} cityColCount={} score={}",
                     best.headerRowIdx, best.dateColIdx, best.cityCols.size(), bestScore);
         }
         return best;
@@ -271,7 +271,7 @@ public class HolidayMasterExcelParser {
                 }
             }
             groupToCols.put(groupValue, cols);
-            log.debug("HolidayMasterExcelParser: city-group '{}' (norm='{}') → columns {}",
+            log.debug("IndianHolidayMasterExcelParser: city-group '{}' (norm='{}') → columns {}",
                     groupValue, normGroupValue, cols);
         }
         return groupToCols;

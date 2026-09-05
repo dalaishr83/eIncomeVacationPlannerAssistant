@@ -9,6 +9,7 @@
     let employees = [];
     let currentYear = new Date().getFullYear();
     let isThinking = false;
+    let activeFilename = null;   // name of the currently active master file
 
     // ── DOM refs (null-safe — admin page may omit some elements) ───────────────
     const messagesEl      = document.getElementById("messages");
@@ -29,6 +30,10 @@
     const statusDot       = document.getElementById("statusDot");
     const topbarSubtitle      = document.getElementById("topbarSubtitle");
     const provisionMasterBtn  = document.getElementById("provisionMasterBtn");
+    const provisionProgress   = document.getElementById("provisionProgress");
+    const provisionBar        = document.getElementById("provisionBar");
+    const provisionStatusEl   = document.getElementById("provisionStatus");
+    const sidebarBrandSub     = document.querySelector(".sidebar-brand-sub");
 
     // ── Boot sequence ──────────────────────────────────────────────────────────
     Promise.all([fetchEmployees(), fetchFiles(), fetchYears()]).catch(function () {});
@@ -151,25 +156,65 @@
             var yrData = await yr.json();
             targetYear = yrData.targetYear;
         } catch (e) {
-            appendMessage("⚠️ Could not determine target year. Please try again.", "bot");
+            showProvisionStatus("⚠️ Could not determine target year. Please try again.", "error");
             return;
         }
         if (!confirm("Provision the Master Excel file for " + targetYear + "?\n\nThis will copy the template and replace all YEAR placeholders with " + targetYear + ".")) return;
-        setThinking(true);
+
+        // Freeze the button and show progress bar
+        if (provisionMasterBtn) provisionMasterBtn.disabled = true;
+        showProvisionProgress(true, "Provisioning " + targetYear + "…");
+
         try {
             var res = await fetch("/api/admin/provision-next-year", { method: "POST" });
             var data = await res.json();
             if (data.error) {
-                appendMessage("⚠️ " + data.error, "bot");
+                showProvisionProgress(false);
+                showProvisionStatus("⚠️ " + data.error, "error");
             } else {
+                // Animate bar to 100% then hide
+                if (provisionBar) provisionBar.style.width = "100%";
+                setTimeout(function () { showProvisionProgress(false); }, 600);
+                showProvisionStatus("✅ " + data.message, "success");
                 renderFiles(data.files || []);
-                appendMessage("✅ " + data.message, "bot");
             }
         } catch (e) {
-            appendMessage("⚠️ Provisioning failed. Please try again.", "bot");
+            showProvisionProgress(false);
+            showProvisionStatus("⚠️ Provisioning failed. Please try again.", "error");
         } finally {
-            setThinking(false);
+            if (provisionMasterBtn) provisionMasterBtn.disabled = false;
         }
+    }
+
+    /** Show or hide the inline progress bar below the Provision button. */
+    function showProvisionProgress(visible, label) {
+        if (!provisionProgress) return;
+        if (visible) {
+            if (provisionBar)     provisionBar.style.width = "0%";
+            if (provisionStatusEl) provisionStatusEl.textContent = label || "";
+            provisionProgress.style.display = "block";
+            // Animate the indeterminate fill to ~80% to signal work in progress
+            setTimeout(function () { if (provisionBar) provisionBar.style.width = "80%"; }, 50);
+        } else {
+            provisionProgress.style.display = "none";
+            if (provisionBar) provisionBar.style.width = "0%";
+        }
+    }
+
+    /** Show a transient status message below the Provision button. */
+    function showProvisionStatus(msg, type) {
+        if (!provisionStatusEl) return;
+        if (!provisionProgress) return;
+        provisionProgress.style.display = "block";
+        if (provisionBar) provisionBar.style.width = "0%";
+        provisionStatusEl.textContent = msg;
+        provisionStatusEl.style.color = (type === "error") ? "#b91c1c" : "#166534";
+        // Auto-clear after 8 seconds
+        setTimeout(function () {
+            provisionProgress.style.display = "none";
+            provisionStatusEl.textContent = "";
+            provisionStatusEl.style.color = "";
+        }, 8000);
     }
 
     // ── API helpers ────────────────────────────────────────────────────────────
@@ -228,11 +273,7 @@
     // ── Rendering ──────────────────────────────────────────────────────────────
 
     function renderEmployees() {
-        if (topbarSubtitle) {
-            topbarSubtitle.textContent = employees.length > 0
-                ? "Admin — " + employees.length + " employee(s) loaded"
-                : "Admin — No file loaded";
-        }
+        // topbarSubtitle is updated by renderFiles() with the active filename
         if (!employeeList) return;
         employeeList.innerHTML = "";
         employees.forEach(function (name) {
@@ -249,6 +290,17 @@
     }
 
     function renderFiles(files) {
+        // Store and display the active master filename everywhere
+        var activeFile = files.find(function (f) { return f.active; });
+        activeFilename = activeFile ? activeFile.name : null;
+        if (sidebarBrandSub) {
+            sidebarBrandSub.textContent = activeFilename || "Admin";
+            sidebarBrandSub.title       = activeFilename || "";
+        }
+        if (topbarSubtitle) {
+            topbarSubtitle.textContent = activeFilename || "No file loaded";
+        }
+
         if (!fileList) return;
         fileList.innerHTML = "";
         files.forEach(function (f) {
@@ -373,9 +425,7 @@
         if (sendBtn) sendBtn.disabled = state;
         if (messageInput) messageInput.disabled = state;
         if (!state && topbarSubtitle) {
-            topbarSubtitle.textContent = employees.length > 0
-                ? "Admin — " + employees.length + " employee(s) loaded"
-                : "Admin — No file loaded";
+            topbarSubtitle.textContent = activeFilename || "No file loaded";
         }
     }
 

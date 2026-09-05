@@ -118,6 +118,25 @@ public class FileController {
         return ResponseEntity.ok(r);
     }
 
+    /**
+     * GET /api/active-file
+     * Returns the filename of the currently active/loaded master Excel file,
+     * or null if no file is loaded. Used by all pages to display the active filename.
+     */
+    @GetMapping("/active-file")
+    public ResponseEntity<Map<String, Object>> getActiveFile() {
+        List<String> active = appState.getActiveFiles();
+        String name = null;
+        if (!active.isEmpty()) {
+            name = new java.io.File(active.get(0)).getName();
+        }
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("activeFile", name);
+        return ResponseEntity.ok(r);
+    }
+
+
+
     @PostMapping("/switch-file")
     public ResponseEntity<Map<String, Object>> switchFile(@RequestBody Map<String, String> body) {
         String path = body.get("path");

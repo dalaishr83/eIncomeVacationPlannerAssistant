@@ -382,8 +382,8 @@
 .holiday-file-item:last-child { border-bottom: none; }
 .holiday-file-item:hover { background: rgba(42,91,215,.06); }
 .holiday-file-item.selected { background: rgba(42,91,215,.1); }
-.holiday-file-item input[type=radio] { flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
 .holiday-file-item .hf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.holiday-file-item.syncing  { background: rgba(42,91,215,.06); cursor: default; }
 
 /* Sync button inside each holiday file row */
 .hf-sync-btn {
@@ -398,9 +398,43 @@
 .hf-sync-btn:disabled { opacity: .45; cursor: not-allowed; }
 .hf-sync-btn svg { pointer-events: none; }
 
-/* Spinning animation for the sync icon while loading */
-@keyframes hf-spin { to { transform: rotate(360deg); } }
-.hf-sync-btn.spinning svg { animation: hf-spin .7s linear infinite; }
+/* Per-row indeterminate progress bar shown during sync */
+.hf-progress-wrap {
+    display: none;
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: var(--border);
+    overflow: hidden;
+    margin: 0 4px;
+    align-self: center;
+}
+
+@keyframes hf-progress-slide {
+    0%   { transform: translateX(-150%); }
+    100% { transform: translateX(400%); }
+}
+
+.hf-progress-bar {
+    height: 100%;
+    width: 35%;
+    background: var(--accent);
+    border-radius: 2px;
+    animation: hf-progress-slide 1.1s ease-in-out infinite;
+}
+
+/* Delete button inside each holiday file row */
+.hf-delete-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: var(--surface); color: var(--muted);
+    cursor: pointer; transition: background .15s, color .15s, border-color .15s;
+}
+.hf-delete-btn:hover:not(:disabled) { background: #fee2e2; color: #dc2626; border-color: #fca5a5; }
+.hf-delete-btn:disabled { opacity: .45; cursor: not-allowed; }
+.hf-delete-btn svg { pointer-events: none; }
 
 /* Alert injected above the file list in Card 4 */
 #holidaySyncAlert { margin-bottom: 10px; }

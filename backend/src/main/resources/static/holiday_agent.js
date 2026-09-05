@@ -696,6 +696,14 @@
     }
 
     function renderFiles(files) {
+        // Update topbar subtitle with the active master file name
+        const activeFile = files.find(f => f.active);
+        if (topbarSubtitle && activeFile) {
+            topbarSubtitle.textContent = activeFile.name;
+        } else if (topbarSubtitle && !activeFile && files.length === 0) {
+            topbarSubtitle.textContent = "No file loaded";
+        }
+
         if (!fileList) return;
         fileList.innerHTML = "";
         files.forEach(f => {

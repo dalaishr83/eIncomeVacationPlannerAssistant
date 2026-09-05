@@ -9,12 +9,13 @@ import org.springframework.ui.Model;
 import org.springframework.web.bind.annotation.GetMapping;
 
 import javax.servlet.http.HttpSession;
+import java.io.File;
 import java.util.Collections;
 import java.util.List;
 
 /**
  * Main page controller — serves the role-appropriate page template.
- * Admin → admin-page.html, Employee → employee-page.html.
+ * Admin → admin/dashboard, Employee → employee-page.
  */
 @Controller
 public class IndexController {
@@ -37,6 +38,12 @@ public class IndexController {
         String loginUsername = (String) session.getAttribute("username");
         model.addAttribute("loginUsername", loginUsername);
 
+        // Expose the active filename to every page template (dashboard, employee-page)
+        List<String> active = appState.getActiveFiles();
+        if (!active.isEmpty()) {
+            model.addAttribute("activeFilename", new File(active.get(0)).getName());
+        }
+
         String role = (String) session.getAttribute("role");
         if ("admin".equals(role)) {
             model.addAttribute("currentPage", "dashboard");
@@ -45,13 +52,24 @@ public class IndexController {
         return "employee-page";
     }
 
+    /**
+     * Discovers all master Excel files and activates the current-calendar-year file
+     * preferentially. Falls back to the newest file (sorted descending by name) when
+     * no current-year file is available.
+     */
     private void initLoadedFiles() {
         syncService.forceSync();
         List<String> paths = appState.discoverExcelPaths();
-        if (!paths.isEmpty()) {
-            appState.setLoadedFiles(paths);
-            appState.setActiveFiles(Collections.singletonList(paths.get(0))); // newest first
-            appState.refreshKnownFiles();
-        }
+        if (paths.isEmpty()) return;
+
+        // Prefer the current-year file; fall back to newest (paths[0] = newest after sort).
+        String currentYearPath = appState.resolveCurrentYearFilePath();
+        String activeFile = (currentYearPath != null && new File(currentYearPath).exists())
+                ? currentYearPath
+                : paths.get(0);
+
+        appState.setLoadedFiles(paths);
+        appState.setActiveFiles(Collections.singletonList(activeFile));
+        appState.refreshKnownFiles();
     }
 }

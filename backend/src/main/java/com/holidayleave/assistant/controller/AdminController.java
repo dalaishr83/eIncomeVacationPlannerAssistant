@@ -3,6 +3,7 @@ package com.holidayleave.assistant.controller;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
 import com.holidayleave.assistant.model.FileInfo;
+import com.holidayleave.assistant.model.HolidayMasterType;
 import com.holidayleave.assistant.model.LeaveRecord;
 import com.holidayleave.assistant.model.VacationType;
 import com.holidayleave.assistant.service.*;
@@ -52,7 +53,24 @@ public class AdminController {
         model.addAttribute("restrictedTypes", restrictedTypeService.getRestrictedTypes());
         model.addAttribute("currentPage", "settings");
         model.addAttribute("topbarSubtitle", "Admin — Settings");
+        addActiveFilename(model);
         return "admin/settings";
+    }
+
+    @GetMapping("/admin/files")
+    public String fileManagementPage(Model model) {
+        model.addAttribute("currentPage", "files");
+        model.addAttribute("topbarSubtitle", "Admin — File Management");
+        addActiveFilename(model);
+        return "admin/file-management";
+    }
+
+    @GetMapping("/admin/sync-holiday")
+    public String syncHolidayPage(Model model) {
+        model.addAttribute("currentPage", "sync-holiday");
+        model.addAttribute("topbarSubtitle", "Admin — Sync Master Holiday");
+        addActiveFilename(model);
+        return "admin/sync-holiday";
     }
 
     @GetMapping("/admin/approvals")
@@ -61,6 +79,7 @@ public class AdminController {
         model.addAttribute("pcRecords", pcRecords);
         model.addAttribute("currentPage", "approvals");
         model.addAttribute("topbarSubtitle", "Admin — PC Approvals");
+        addActiveFilename(model);
         return "admin/approvals";
     }
 
@@ -68,6 +87,7 @@ public class AdminController {
     public String auditLogPage(Model model) {
         model.addAttribute("currentPage", "audit-log");
         model.addAttribute("topbarSubtitle", "Admin — Audit Log");
+        addActiveFilename(model);
         return "admin/audit-log";
     }
 
@@ -282,6 +302,90 @@ public class AdminController {
         }
     }
 
+    // ── Holiday Master file upload API ────────────────────────────────────────
+
+    /**
+     * POST /api/admin/holiday-upload
+     * Accepts a single .xlsx file and saves it to {DATA_DIR}/holiday-upload/.
+     *
+     * When the optional {@code country} parameter is provided, the file is saved
+     * under a canonical name derived from the country and the current calendar year:
+     *   india   → India-holiday-<year>.xlsx
+     *   denmark → Denmark-holiday-<year>.xlsx
+     *   romania → Romania-holiday-<year>.xlsx
+     *
+     * If {@code country} is absent or unrecognised, the original filename is kept
+     * (backward-compatible behaviour).
+     *
+     * This endpoint is independent of the Master File upload workflow; it does
+     * not parse the workbook, create working copies, or update AppState.
+     */
+    @PostMapping("/api/admin/holiday-upload")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> uploadHolidayMaster(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file,
+            @RequestParam(value = "country", required = false) String country,
+            HttpSession session) {
+
+        if (file.isEmpty()) {
+            return ResponseEntity.badRequest().body(err("No file field in request."));
+        }
+        String originalName = file.getOriginalFilename();
+        if (originalName == null || !originalName.toLowerCase().endsWith(".xlsx")) {
+            String ext = originalName != null && originalName.contains(".")
+                    ? originalName.substring(originalName.lastIndexOf('.')) : "";
+            return ResponseEntity.badRequest().body(err("Only .xlsx files are supported (got " + ext + ")."));
+        }
+        // Sanitise: reject path traversal in the filename
+        String safeName = java.nio.file.Paths.get(originalName).getFileName().toString();
+        if (safeName.isEmpty()) {
+            return ResponseEntity.badRequest().body(err("Invalid filename."));
+        }
+
+        // Derive the canonical destination filename based on country, if supplied.
+        String destName;
+        if (country != null && !country.trim().isEmpty()) {
+            String prefix;
+            switch (country.trim().toLowerCase()) {
+                case "india":   prefix = "India-holiday-";   break;
+                case "denmark": prefix = "Denmark-holiday-"; break;
+                case "romania": prefix = "Romania-holiday-"; break;
+                default:        prefix = null;               break;
+            }
+            if (prefix != null) {
+                int year = java.time.LocalDate.now().getYear();
+                destName = prefix + year + ".xlsx";
+            } else {
+                destName = safeName;
+            }
+        } else {
+            destName = safeName;
+        }
+
+        try {
+            java.nio.file.Path uploadDir = java.nio.file.Paths.get(appState.getDataDir(), "holiday-upload");
+            java.nio.file.Files.createDirectories(uploadDir);
+
+            java.nio.file.Path dest = uploadDir.resolve(destName);
+            try (java.io.InputStream in = file.getInputStream()) {
+                java.nio.file.Files.copy(in, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+            }
+
+            String actingUser = (String) session.getAttribute("username");
+            if (actingUser == null) actingUser = "admin";
+            auditService.log("holiday_master_uploaded", actingUser, null,
+                    "Holiday master uploaded: " + destName, "success", "api");
+
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("message", "Holiday master file '" + destName + "' uploaded successfully.");
+            r.put("filename", destName);
+            return ResponseEntity.ok(r);
+        } catch (java.io.IOException e) {
+            log.error("Holiday master upload failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(err("Upload failed: " + e.getMessage()));
+        }
+    }
+
     // ── Provision next-year master file API ───────────────────────────────────
 
     /**
@@ -309,17 +413,42 @@ public class AdminController {
         ProvisionResult result = provisioningService.provision(appState.getDataDir(), targetYear);
 
         if (result.isSuccess()) {
+            // After provisioning, always activate the current-calendar-year file.
+            // If the just-provisioned file IS the current year, use it directly.
+            // If it is a future-year file, find and activate the current-year file instead.
+            String currentYearPath = appState.resolveCurrentYearFilePath();
+            String pathToActivate;
+            if (currentYearPath != null && new File(currentYearPath).exists()) {
+                pathToActivate = currentYearPath;
+            } else {
+                // Current-year file not found (e.g. provisioning bootstrapped it) — fall back
+                // to the just-provisioned file.
+                pathToActivate = Paths.get(appState.getDataDir(), result.getFilename())
+                                      .toAbsolutePath().toString();
+            }
+            try {
+                reader.load(pathToActivate);
+            } catch (IOException e) {
+                log.warn("Auto-load after provision failed (files still provisioned): {}", e.getMessage());
+            }
+            appState.setLoadedFiles(Collections.singletonList(pathToActivate));
+            appState.setActiveFiles(Collections.singletonList(pathToActivate));
             appState.refreshKnownFiles();
+
+            String activeName = new File(pathToActivate).getName();
             String actingUser = (String) session.getAttribute("username");
             if (actingUser == null) actingUser = "admin";
             auditService.log("master_file_provisioned", actingUser, null,
-                    "Provisioned master file: " + result.getFilename(), "success", "api");
+                    "Provisioned: " + result.getFilename() + "; activated: " + activeName, "success", "api");
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("message",  "Master file provisioned: " + result.getFilename());
-            r.put("filename", result.getFilename());
-            r.put("files",    appState.getKnownFiles());
+            r.put("message",    "Master file provisioned: " + result.getFilename()
+                                + ". Active file: " + activeName);
+            r.put("filename",   result.getFilename());
+            r.put("files",      appState.getKnownFiles());
+            r.put("activeFile", activeName);
             return ResponseEntity.ok(r);
         }
+
 
         return ResponseEntity.status(result.getHttpStatus()).body(err(result.getErrorMessage()));
     }
@@ -345,6 +474,46 @@ public class AdminController {
         Map<String, Object> r = new LinkedHashMap<>();
         r.put("files", holidaySettingsService.listHolidayFiles(appState.getDataDir()));
         return ResponseEntity.ok(r);
+    }
+
+    /**
+     * DELETE /api/admin/holiday/files
+     * Body: { "filename": "Holiday List - 2026.xlsx" }
+     * Permanently deletes the named file from {DATA_DIR}/holiday-upload/.
+     */
+    @DeleteMapping("/api/admin/holiday/files")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> deleteHolidayFile(
+            @RequestBody Map<String, String> body, HttpSession session) {
+
+        String filename = body.get("filename");
+        if (filename == null || filename.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("filename is required."));
+        if (filename.contains("/") || filename.contains("\\") || filename.contains(".."))
+            return ResponseEntity.badRequest().body(err("Invalid filename."));
+
+        java.nio.file.Path target = java.nio.file.Paths.get(
+                appState.getDataDir(), "holiday-upload", filename);
+
+        if (!target.toFile().exists())
+            return ResponseEntity.status(404).body(err("File not found: " + filename));
+
+        try {
+            java.nio.file.Files.delete(target);
+
+            String actingUser = (String) session.getAttribute("username");
+            if (actingUser == null) actingUser = "admin";
+            auditService.log("holiday_file_deleted", actingUser, null,
+                    "Holiday file deleted: " + filename, "success", "api");
+
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("message", "Holiday file '" + filename + "' deleted.");
+            r.put("files", holidaySettingsService.listHolidayFiles(appState.getDataDir()));
+            return ResponseEntity.ok(r);
+        } catch (java.io.IOException e) {
+            log.error("Holiday file delete failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(err("Delete failed: " + e.getMessage()));
+        }
     }
 
     /** GET /api/admin/holiday/indian-employees — read IN employees from active master file */
@@ -432,8 +601,21 @@ public class AdminController {
     }
 
     /**
-     * POST /api/admin/holiday/sync — run the Indian public-holiday sync workflow.
-     * Body: { "filename": "Holiday List - 2026.xlsx" }
+     * POST /api/admin/holiday/sync — route the holiday-sync request to the
+     * appropriate parser based on the submitted filename.
+     *
+     * <p>Filename-to-type resolution is delegated entirely to
+     * {@link HolidayMasterType#fromFilename(String)} so that no conditional
+     * filename logic is scattered across this controller.
+     *
+     * <ul>
+     *   <li>{@code India-holiday-*.xlsx}   → {@link IndianHolidaySyncService}</li>
+     *   <li>{@code Denmark-holiday-*.xlsx} → future enhancement (not yet available)</li>
+     *   <li>{@code Romania-holiday-*.xlsx} → future enhancement (not yet available)</li>
+     *   <li>Unrecognised filename          → 400 Bad Request</li>
+     * </ul>
+     *
+     * Body: { "filename": "India-holiday-2026.xlsx" }
      */
     @PostMapping("/api/admin/holiday/sync")
     @ResponseBody
@@ -445,25 +627,49 @@ public class AdminController {
         if (filename.contains("/") || filename.contains("\\") || filename.contains(".."))
             return ResponseEntity.badRequest().body(err("Invalid filename."));
 
-        String actingUser = (String) session.getAttribute("username");
-        if (actingUser == null) actingUser = "admin";
+        // Resolve the holiday type from the filename — single source of truth.
+        HolidayMasterType type = HolidayMasterType.fromFilename(filename).orElse(null);
+        if (type == null) {
+            return ResponseEntity.badRequest().body(err(
+                    "Unsupported or unrecognised holiday master file: '" + filename + "'. " +
+                    "Expected a file named India-holiday-<year>.xlsx, " +
+                    "Denmark-holiday-<year>.xlsx, or Romania-holiday-<year>.xlsx."));
+        }
 
-        try {
-            IndianHolidaySyncService.SyncResult result =
-                    indianHolidaySyncService.sync(filename, actingUser);
-            Map<String, Object> r = new LinkedHashMap<>();
-            r.put("message",          result.getMessage());
-            r.put("written",          result.getWritten());
-            r.put("skipped",          result.getSkipped());
-            r.put("skipped_weekend",  result.getSkippedWeekend());
-            r.put("skipped_conflict", result.getSkippedConflict());
-            r.put("employees",        result.getEmployees());
-            return ResponseEntity.ok(r);
-        } catch (IllegalArgumentException e) {
-            return ResponseEntity.badRequest().body(err(e.getMessage()));
-        } catch (IOException e) {
-            log.error("Holiday sync failed: {}", e.getMessage(), e);
-            return ResponseEntity.status(500).body(err("Sync failed: " + e.getMessage()));
+        // Route to the appropriate parser flow.
+        switch (type) {
+            case DENMARK_HOLIDAY: {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("message", "Denmark holiday synchronization is a future enhancement and is not currently available.");
+                return ResponseEntity.ok(r);
+            }
+            case ROMANIA_HOLIDAY: {
+                Map<String, Object> r = new LinkedHashMap<>();
+                r.put("message", "Romania holiday synchronization is a future enhancement and is not currently available.");
+                return ResponseEntity.ok(r);
+            }
+            case INDIAN_HOLIDAY:
+            default: {
+                String actingUser = (String) session.getAttribute("username");
+                if (actingUser == null) actingUser = "admin";
+                try {
+                    IndianHolidaySyncService.SyncResult result =
+                            indianHolidaySyncService.sync(filename, actingUser);
+                    Map<String, Object> r = new LinkedHashMap<>();
+                    r.put("message",          result.getMessage());
+                    r.put("written",          result.getWritten());
+                    r.put("skipped",          result.getSkipped());
+                    r.put("skipped_weekend",  result.getSkippedWeekend());
+                    r.put("skipped_conflict", result.getSkippedConflict());
+                    r.put("employees",        result.getEmployees());
+                    return ResponseEntity.ok(r);
+                } catch (IllegalArgumentException e) {
+                    return ResponseEntity.badRequest().body(err(e.getMessage()));
+                } catch (IOException e) {
+                    log.error("Holiday sync failed: {}", e.getMessage(), e);
+                    return ResponseEntity.status(500).body(err("Sync failed: " + e.getMessage()));
+                }
+            }
         }
     }
 
@@ -655,5 +861,19 @@ public class AdminController {
         Map<String, Object> m = new LinkedHashMap<>();
         m.put("error", msg);
         return m;
+    }
+
+    /**
+     * Adds {@code activeFilename} to the model — the bare filename of the currently
+     * active/loaded master Excel file, or {@code null} if no file is loaded.
+     * Used by layout.html to show the active file in the sidebar brand area.
+     */
+    private void addActiveFilename(Model model) {
+        List<String> active = appState.getActiveFiles();
+        String name = null;
+        if (!active.isEmpty()) {
+            name = new File(active.get(0)).getName();
+        }
+        model.addAttribute("activeFilename", name);
     }
 }

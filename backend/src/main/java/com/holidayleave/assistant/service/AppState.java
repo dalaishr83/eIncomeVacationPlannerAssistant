@@ -187,5 +187,25 @@ public class AppState {
         return paths;
     }
 
+
+    /**
+     * Returns the absolute path of the Master Excel file whose name contains the
+     * current calendar year (e.g. "eIndkomst vacation 2025.xlsx"), or {@code null}
+     * if no such file exists in {@code dataDir}.
+     * The match is done against the filename only — works regardless of mount path.
+     */
+    public String resolveCurrentYearFilePath() {
+        String yearToken = String.valueOf(java.time.LocalDate.now().getYear());
+        File dir = new File(dataDir);
+        if (!dir.exists()) return null;
+        File[] files = dir.listFiles(
+                f -> f.isFile() && f.getName().endsWith(".xlsx") && f.getName().contains(yearToken));
+        if (files == null || files.length == 0) return null;
+        // If multiple files match (unlikely), prefer lexicographically largest name.
+        Arrays.sort(files, (a, b) -> b.getName().compareTo(a.getName()));
+        return files[0].getAbsolutePath();
+    }
+
+
     public ReentrantLock getAgentLock() { return agentLock; }
 }

@@ -1,0 +1,216 @@
+/* ── File Management page — holiday_agent_file_mgmt.css ─────────────────────
+   Loaded exclusively on /admin/files.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page shell ──────────────────────────────────────────────────────────── */
+.main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.fm-page {
+    flex: 1 1 0;
+    min-height: 0;
+    overflow-y: auto;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
+}
+
+.fm-page h1 {
+    font-size: 1.3rem; font-weight: 700;
+    color: var(--text); margin: 0;
+    flex-shrink: 0;
+}
+
+/* ── Card shell ──────────────────────────────────────────────────────────── */
+.fm-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 18px 20px;
+    flex-shrink: 0;
+}
+
+/* ── Card header (icon + title/subtitle) ─────────────────────────────────── */
+.fm-card-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 18px;
+}
+
+.fm-card-icon {
+    width: 32px; height: 32px; border-radius: 8px;
+    background: rgba(42, 91, 215, .1);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--accent);
+}
+
+.fm-card-title   { font-size: .95rem; font-weight: 700; color: var(--text); }
+.fm-card-subtitle { font-size: .76rem; color: var(--muted); margin-top: 2px; }
+
+/* ── Upload type selector ────────────────────────────────────────────────── */
+.fm-type-selector {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 18px;
+    flex-wrap: wrap;
+}
+
+.fm-type-option {
+    flex: 1 1 140px;
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 12px 14px;
+    border: 2px solid var(--border);
+    border-radius: 9px;
+    cursor: pointer;
+    transition: border-color .15s, background .15s;
+    background: var(--bg);
+    user-select: none;
+    min-width: 0;
+}
+
+.fm-type-option:hover { border-color: var(--accent); background: rgba(42,91,215,.04); }
+
+/* Highlight the selected option */
+.fm-type-option:has(input:checked) {
+    border-color: var(--accent);
+    background: rgba(42, 91, 215, .07);
+}
+
+/* Hide the raw radio button */
+.fm-type-option input[type="radio"] { position: absolute; opacity: 0; width: 0; height: 0; }
+
+.fm-type-icon {
+    width: 32px; height: 32px; border-radius: 7px;
+    background: rgba(42, 91, 215, .1);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--accent);
+    transition: background .15s;
+}
+.fm-type-option:has(input:checked) .fm-type-icon {
+    background: var(--accent);
+    color: #fff;
+}
+
+.fm-type-label {
+    font-size: .82rem; font-weight: 700; color: var(--text);
+    display: block; margin-bottom: 2px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fm-type-desc {
+    font-size: .72rem; color: var(--muted); display: block;
+    line-height: 1.35;
+}
+
+/* ── Drop zone ───────────────────────────────────────────────────────────── */
+.fm-drop-zone {
+    border: 2px dashed var(--border);
+    border-radius: 9px;
+    padding: 28px 20px;
+    text-align: center;
+    transition: border-color .15s, background .15s;
+    cursor: pointer;
+}
+
+.fm-drop-zone:hover,
+.fm-drop-zone.drag-over {
+    border-color: var(--accent);
+    background: rgba(42, 91, 215, .04);
+}
+
+.fm-drop-icon { margin-bottom: 10px; }
+
+.fm-drop-label {
+    font-size: .9rem; color: var(--text);
+    margin: 0 0 6px;
+}
+
+.fm-xlsx-highlight {
+    color: var(--accent); font-weight: 700;
+}
+
+.fm-drop-sub {
+    font-size: .8rem; color: var(--muted); margin: 0;
+}
+
+.fm-browse-btn {
+    background: none; border: none; padding: 0;
+    color: var(--accent); cursor: pointer; font-size: .8rem;
+    text-decoration: underline; text-underline-offset: 2px;
+}
+.fm-browse-btn:hover { opacity: .75; }
+
+/* ── Alert / status bar ──────────────────────────────────────────────────── */
+.fm-alert {
+    margin-top: 14px;
+    padding: 10px 14px;
+    border-radius: 7px;
+    font-size: .85rem;
+    display: none;
+}
+.fm-alert.success { background: #d1fae5; color: #065f46; display: block; }
+.fm-alert.error   { background: #fee2e2; color: #991b1b; display: block; }
+.fm-alert.info    { background: #dbeafe; color: #1e40af; display: block; }
+
+/* ── Available files card ────────────────────────────────────────────────── */
+.fm-files-card .fm-card-header { margin-bottom: 10px; }
+
+.fm-file-list {
+    list-style: none; margin: 0; padding: 0;
+}
+
+.fm-file-item {
+    display: flex;
+    align-items: center;
+    padding: 9px 4px;
+    border-bottom: 1px solid var(--border);
+    gap: 8px;
+}
+.fm-file-item:last-child { border-bottom: none; }
+
+.fm-file-name {
+    flex: 1; font-size: .85rem; color: var(--text);
+    cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.fm-file-name:hover { color: var(--accent); }
+
+.fm-file-badge {
+    font-size: .7rem; font-weight: 700;
+    background: rgba(42,91,215,.12); color: var(--accent);
+    border-radius: 4px; padding: 2px 7px; white-space: nowrap;
+}
+
+.fm-file-delete-btn {
+    background: none; border: none; cursor: pointer; padding: 4px 6px;
+    color: var(--muted); border-radius: 5px; flex-shrink: 0;
+    transition: color .12s, background .12s;
+}
+.fm-file-delete-btn:hover { color: #dc2626; background: #fee2e2; }
+
+.fm-file-empty {
+    font-size: .84rem; color: var(--muted); font-style: italic;
+    padding: 12px 4px;
+}
+
+/* ── Responsive ──────────────────────────────────────────────────────────── */
+
+/* 4 options → 2×2 grid on mid-size screens */
+@media (max-width: 700px) {
+    .fm-type-option { flex: 1 1 calc(50% - 5px); }
+}
+
+/* Small phones: compact the card tiles, hide description text */
+@media (max-width: 420px) {
+    .fm-type-selector  { gap: 8px; }
+    .fm-type-option    { flex: 1 1 calc(50% - 4px); padding: 10px 10px; gap: 8px; }
+    .fm-type-icon      { width: 26px; height: 26px; }
+    .fm-type-icon svg  { width: 15px; height: 15px; }
+    .fm-type-label     { font-size: .76rem; }
+    .fm-type-desc      { display: none; }
+}

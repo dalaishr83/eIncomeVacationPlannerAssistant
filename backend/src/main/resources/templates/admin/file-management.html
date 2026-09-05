@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <link rel="stylesheet" th:href="@{/static/holiday_agent_file_mgmt.css}">
+    <title>File Management — Vacation Planner Assistant</title>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <!-- ── File Management content ───────────────────────────────────────── -->
+    <div class="fm-page">
+        <h1>File Management</h1>
+
+        <!-- ── Upload card ─────────────────────────────────────────────────── -->
+        <div class="fm-card">
+
+            <!-- Card header -->
+            <div class="fm-card-header">
+                <div class="fm-card-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                        <polyline points="17 8 12 3 7 8"/>
+                        <line x1="12" y1="3" x2="12" y2="15"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="fm-card-title">Upload File</div>
+                    <div class="fm-card-subtitle">Choose a file type then drop or browse to upload</div>
+                </div>
+            </div>
+
+            <!-- Upload type selector -->
+            <div class="fm-type-selector">
+                <label class="fm-type-option" id="optDenmarkHoliday">
+                    <input type="radio" name="uploadType" value="denmark-holiday">
+                    <span class="fm-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </span>
+                    <span class="fm-type-label">Upload Denmark Holiday</span>
+                    <span class="fm-type-desc">Public holiday reference file for Danish employees</span>
+                </label>
+
+                <label class="fm-type-option" id="optRomaniaHoliday">
+                    <input type="radio" name="uploadType" value="romania-holiday">
+                    <span class="fm-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </span>
+                    <span class="fm-type-label">Upload Romania Holiday</span>
+                    <span class="fm-type-desc">Public holiday reference file for Romanian employees</span>
+                </label>
+
+                <label class="fm-type-option" id="optIndiaHoliday">
+                    <input type="radio" name="uploadType" value="india-holiday">
+                    <span class="fm-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <line x1="2" y1="12" x2="22" y2="12"/>
+                            <path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+                        </svg>
+                    </span>
+                    <span class="fm-type-label">Upload Indian Holiday</span>
+                    <span class="fm-type-desc">Public holiday reference file for Indian employees</span>
+                </label>
+
+                <label class="fm-type-option" id="optMaster">
+                    <input type="radio" name="uploadType" value="master" checked>
+                    <span class="fm-type-icon">
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                             stroke-linecap="round" stroke-linejoin="round">
+                            <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/>
+                            <line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>
+                            <line x1="3" y1="10" x2="21" y2="10"/>
+                            <line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="18" x2="12" y2="18"/>
+                        </svg>
+                    </span>
+                    <span class="fm-type-label">Upload Vacation Planner</span>
+                    <span class="fm-type-desc">Vacation planner .xlsx for a calendar year</span>
+                </label>
+            </div>
+
+            <!-- Drop zone -->
+            <div class="fm-drop-zone" id="fmDropZone">
+                <div class="fm-drop-icon">
+                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4"
+                         stroke-linecap="round" stroke-linejoin="round" style="opacity:.55">
+                        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                        <polyline points="14 2 14 8 20 8"/>
+                        <line x1="12" y1="18" x2="12" y2="12"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                </div>
+                <p class="fm-drop-label">Drop your <span class="fm-xlsx-highlight">.xlsx</span> file here</p>
+                <p class="fm-drop-sub">or <button type="button" class="fm-browse-btn" id="fmBrowseBtn">browse to upload</button></p>
+                <input type="file" id="fmFileInput" accept=".xlsx" style="display:none">
+            </div>
+
+            <!-- Status / result -->
+            <div class="fm-alert" id="fmAlert"></div>
+        </div><!-- /.fm-card -->
+
+        <!-- ── Available master files ───────────────────────────────────────── -->
+        <div class="fm-card fm-files-card">
+            <div class="fm-card-header">
+                <div class="fm-card-icon">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                         stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+                    </svg>
+                </div>
+                <div>
+                    <div class="fm-card-title">Available Master Files</div>
+                    <div class="fm-card-subtitle">Click a file to make it active; use the trash icon to delete</div>
+                </div>
+            </div>
+            <ul class="fm-file-list" id="fmFileList">
+                <li class="fm-file-empty">Loading…</li>
+            </ul>
+        </div>
+
+    </div><!-- /.fm-page -->
+</main>
+
+<script th:src="@{/static/holiday_agent_admin.js}"></script>
+<script th:src="@{/static/holiday_agent_file_mgmt.js}"></script>
+</body>
+</html>

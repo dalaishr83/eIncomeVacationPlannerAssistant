@@ -1,6 +1,6 @@
 package com.holidayleave.assistant.service;
 
-import com.holidayleave.assistant.excel.HolidayMasterExcelParser;
+import com.holidayleave.assistant.excel.IndianHolidayMasterExcelParser;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
 import com.holidayleave.assistant.model.LeaveRecord;
@@ -22,7 +22,7 @@ import java.util.*;
  * <ol>
  *   <li>Read city values from {@code DATA_DIR/holiday-mapping/indian-city.json}.</li>
  *   <li>Parse the selected Holiday Master Excel (under {@code holiday-upload/}) via
- *       {@link HolidayMasterExcelParser} to obtain
+ *       {@link IndianHolidayMasterExcelParser} to obtain
  *       {@code Map<cityGroupValue, List<LocalDate>>}.</li>
  *   <li>Read {@code employee-mapping.json} and group employees by the stored city string.</li>
  *   <li>For every (employee, holiday-date) pair call
@@ -45,7 +45,7 @@ public class IndianHolidaySyncService {
 
     @Autowired private AppState               appState;
     @Autowired private HolidaySettingsService  holidaySettingsService;
-    @Autowired private HolidayMasterExcelParser parser;
+    @Autowired private IndianHolidayMasterExcelParser parser;
     @Autowired private WorkingExcelWriter       writer;
     @Autowired private PlannerExcelReader       reader;
     @Autowired private VacationTypeService      vacationTypeService;
@@ -104,7 +104,7 @@ public class IndianHolidaySyncService {
         // cross-check: warn for any city group that has holidays but no employees
         for (Map.Entry<String, List<LocalDate>> hme : holidayMap.entrySet()) {
             if (!hme.getValue().isEmpty()) {
-                String normKey = HolidayMasterExcelParser.normalizeCity(hme.getKey());
+                String normKey = IndianHolidayMasterExcelParser.normalizeCity(hme.getKey());
                 List<String> emps = cityToEmployees.get(normKey);
                 if (emps == null || emps.isEmpty()) {
                     log.warn("IndianHolidaySyncService: city-group '{}' (norm='{}') has {} holiday(s) but NO employees mapped — " +
@@ -125,7 +125,7 @@ public class IndianHolidaySyncService {
         for (Map.Entry<String, List<LocalDate>> entry : holidayMap.entrySet()) {
             String           cityGroupValue     = entry.getKey();
             // Normalize the key so it matches the normalized keys in cityToEmployees
-            String           normCityGroupValue = HolidayMasterExcelParser.normalizeCity(cityGroupValue);
+            String           normCityGroupValue = IndianHolidayMasterExcelParser.normalizeCity(cityGroupValue);
             List<LocalDate>  holidayDates       = entry.getValue();
 
             if (holidayDates.isEmpty()) {
@@ -240,7 +240,7 @@ public class IndianHolidaySyncService {
      * Builds a map: normalizedCityValue → employee names.
      *
      * <p>The stored "city" field in employee-mapping.json is normalized with
-     * {@link HolidayMasterExcelParser#normalizeCity} before being used as the map key
+     * {@link IndianHolidayMasterExcelParser#normalizeCity} before being used as the map key
      * so that lookups against the normalized holiday-map keys always succeed regardless
      * of case, leading/trailing spaces, or spaces around commas.
      */
@@ -257,7 +257,7 @@ public class IndianHolidaySyncService {
             Object cityObj = entry.get("city");
             if (cityObj == null) continue;
             // Normalize the stored city value — same method as used on the Excel side
-            String cityValue = HolidayMasterExcelParser.normalizeCity(String.valueOf(cityObj));
+            String cityValue = IndianHolidayMasterExcelParser.normalizeCity(String.valueOf(cityObj));
             if (cityValue.isEmpty()) continue;
             result.computeIfAbsent(cityValue, k -> new ArrayList<>()).add(empName);
         }

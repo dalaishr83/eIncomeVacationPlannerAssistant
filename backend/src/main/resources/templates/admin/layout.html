@@ -60,32 +60,11 @@
         </div>
         <div class="sidebar-brand-text">
             <div class="sidebar-brand-title">Vacation Planner Assistant</div>
-            <div class="sidebar-brand-sub">Admin</div>
-        </div>
-    </div>
-
-    <!-- Upload Zone (admin only) -->
-    <div class="upload-zone" id="uploadZone">
-        <div class="upload-icon">
-            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" style="opacity:.7">
-                <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
-                <polyline points="14 2 14 8 20 8"/>
-                <line x1="12" y1="18" x2="12" y2="12"/>
-                <line x1="9" y1="15" x2="15" y2="15"/>
-            </svg>
-        </div>
-        <p class="upload-label">Drop your <span class="xlsx-highlight">.xlsx</span> file here</p>
-        <p class="upload-sub">or tap to browse</p>
-        <input type="file" id="fileInput" accept=".xlsx" style="display:none">
-    </div>
-
-    <!-- Available Files -->
-    <div class="sidebar-section sidebar-section--fixed">
-        <div class="section-header collapsible" data-target="fileListContent">
-            <span>Available Files</span><span class="chevron">▾</span>
-        </div>
-        <div id="fileListContent" class="section-content">
-            <ul id="fileList" class="file-list"></ul>
+            <div class="sidebar-brand-sub"
+                 id="sidebarBrandSub"
+                 th:text="${activeFilename} ?: 'Admin'"
+                 th:title="${activeFilename} ?: ''"
+                 >Admin</div>
         </div>
     </div>
 
@@ -117,10 +96,30 @@
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:6px;vertical-align:middle;" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="16" y2="17"/><polyline points="10 9 9 9 8 9"/></svg>
                 Audit Log
             </a>
+            <a href="/admin/files"
+               th:classappend="${currentPage == 'files'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/><line x1="12" y1="11" x2="12" y2="17"/><line x1="9" y1="14" x2="15" y2="14"/></svg>
+                File Management
+            </a>
+            <a href="/admin/sync-holiday"
+               th:classappend="${currentPage == 'sync-holiday'} ? ' sidebar-admin-link--active'"
+               class="sidebar-admin-link">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+                Sync Holiday
+            </a>
+
             <button id="provisionMasterBtn" class="sidebar-admin-link" style="background:none;border:none;cursor:pointer;width:100%;text-align:left;" title="Provision next-year Master Excel from template">
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="12" y1="14" x2="12" y2="18"/><line x1="10" y1="16" x2="14" y2="16"/></svg>
                 Provision Master Excel
             </button>
+            <!-- Progress bar shown while provisioning is running -->
+            <div id="provisionProgress" style="display:none;padding:6px 10px;">
+                <div style="height:4px;background:#e5e7eb;border-radius:2px;overflow:hidden;">
+                    <div id="provisionBar" style="height:100%;width:0%;background:#3b82d4;border-radius:2px;transition:width 0.4s ease;"></div>
+                </div>
+                <div id="provisionStatus" style="font-size:11px;color:#57606a;margin-top:4px;"></div>
+            </div>
         </div>
     </div>
 

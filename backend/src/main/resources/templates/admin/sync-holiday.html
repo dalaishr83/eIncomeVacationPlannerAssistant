@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <link rel="stylesheet" th:href="@{/static/holiday_agent_settings.css}">
+    <title>Sync Master Holiday — Vacation Planner Assistant</title>
+    <style>
+        /*
+         * Sync Holiday page — scoped layout overrides.
+         * All rules are scoped to IDs or to .settings-page so they cannot
+         * bleed into settings.html or any other page.
+         *
+         * GOAL: the two cards share the available viewport height dynamically.
+         *   • The expanded card gets all the flex-grow space.
+         *   • The collapsed card shrinks to its header height only.
+         *   • Both cards contain their content without page-level overflow.
+         */
+
+        /* ── Page shell ────────────────────────────────────────────────────── */
+        .main {
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .settings-page {
+            flex: 1 1 0;
+            min-height: 0;
+            padding: 20px 20px 12px;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            gap: 0;                 /* cards control their own spacing */
+        }
+
+        .settings-page h1 {
+            flex-shrink: 0;
+        }
+
+        /* ── Shared card behaviour ─────────────────────────────────────────── */
+        /*
+         * Both cards live in the flex column.
+         * flex-grow:0  → closed card only takes its header height.
+         * flex-grow:1  → open card absorbs all remaining space.
+         * The .open class controls which state applies.
+         */
+        #card-holiday-sync,
+        #card-employee-city {
+            flex: 0 0 auto;         /* collapsed default: header height only */
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            /* space between cards */
+            margin-bottom: 12px;
+        }
+
+        #card-employee-city {
+            margin-bottom: 0;
+        }
+
+        /* Open card grows to fill whatever the other card leaves */
+        #card-holiday-sync.open,
+        #card-employee-city.open {
+            flex: 1 1 0;
+        }
+
+        /* When both cards are open, split evenly */
+        #card-holiday-sync.open + #card-employee-city.open {
+            /* flex:1 on both → equal split — no special rule needed */
+        }
+
+        /* ── Card 4 open: body scrolls its file list ───────────────────────── */
+        #card-holiday-sync.open .sc-body {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #card-holiday-sync .sc-body-inner {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-top: 16px;
+        }
+
+        /* Holiday file list scrolls vertically inside Card 4 */
+        #card-holiday-sync .sc-body-inner .sc-desc {
+            flex-shrink: 0;
+        }
+
+        #card-holiday-sync .holiday-file-list {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: hidden;
+            max-height: none;       /* override shared max-height:220px */
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        #card-holiday-sync .holiday-file-list::-webkit-scrollbar { width: 5px; }
+        #card-holiday-sync .holiday-file-list::-webkit-scrollbar-thumb {
+            background: var(--border); border-radius: 3px;
+        }
+
+        /* ── Card 5 open: body scrolls the employee table ─────────────────── */
+        #card-employee-city.open .sc-body {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        #card-employee-city .sc-body-inner {
+            flex: 1 1 0;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            padding-top: 16px;
+        }
+
+        #card-employee-city .sc-desc {
+            flex-shrink: 0;
+        }
+
+        /* Employee table scroll region expands to fill remaining card space */
+        #card-employee-city .emc-scroll-wrap {
+            flex: 1 1 0;
+            min-height: 0;
+            overflow-y: auto;
+            overflow-x: auto;
+            scrollbar-width: thin;
+            scrollbar-color: var(--border) transparent;
+        }
+        #card-employee-city .emc-scroll-wrap::-webkit-scrollbar { width: 5px; }
+        #card-employee-city .emc-scroll-wrap::-webkit-scrollbar-thumb {
+            background: var(--border); border-radius: 3px;
+        }
+
+        /* Sticky column headers stay visible while list scrolls */
+        #card-employee-city .emc-table thead th {
+            position: sticky;
+            top: 0;
+            z-index: 1;
+            background: var(--surface);
+        }
+
+        /* Save button and alert sit below the scroll region, always visible */
+        #card-employee-city .emc-save-btn { flex-shrink: 0; margin-top: 14px; }
+        #card-employee-city #emcAlert     { flex-shrink: 0; }
+
+        /* ── Mobile: full block-flow revert ────────────────────────────────── */
+        /*
+         * ROOT CAUSE of the overlap defect:
+         * The desktop rules above (outside any media query) set:
+         *   .settings-page    { display: flex; flex-direction: column }
+         *   #card-*           { flex: 0 0 auto; display: flex; overflow: hidden }
+         *   #card-*.open      { flex: 1 1 0 }
+         *
+         * On mobile with height:auto on .settings-page, the flex container has
+         * no defined height → no free space → the open card (flex:1 1 0) gets
+         * zero intrinsic height → its body content overflows out of the card
+         * boundary, and the collapsed Card 5 (flex:0 0 auto, header-height only)
+         * paints directly on top of Card 4's spilled-out body content.
+         *
+         * The only reliable fix is to remove display:flex from EVERY ancestor
+         * in the chain: .settings-page, both cards, both sc-body elements,
+         * and both sc-body-inner elements — reverting the whole subtree to
+         * normal block flow so cards simply stack vertically in document order.
+         */
+        @media (max-width: 600px) {
+            /* ① Unlock body/main from global overflow:hidden */
+            body  { overflow-y: auto; }
+            .main { overflow: visible !important; height: auto !important;
+                    min-height: 100dvh; }
+
+            /* ② Page container — pure block, no flex at all */
+            .settings-page {
+                display: block !important;
+                overflow: visible !important;
+                flex: unset !important;
+                min-height: unset !important;
+                height: auto !important;
+            }
+
+            /* ③ Cards — pure block, strip every flex and overflow property.
+               !important is required because the desktop ID rules in this same
+               <style> block have equal specificity and appear earlier, so the
+               media query rules must win via !important to guarantee override. */
+            #card-holiday-sync,
+            #card-employee-city {
+                display: block !important;
+                flex: unset !important;
+                overflow: visible !important;
+                height: auto !important;
+                min-height: 0 !important;
+                margin-bottom: 12px !important;
+            }
+
+            /* Override .sc-card { overflow:hidden } from shared CSS */
+            #card-holiday-sync.sc-card,
+            #card-employee-city.sc-card {
+                overflow: visible !important;
+            }
+
+            /* ④ Open/closed states — no flex sizing needed in block flow */
+            #card-holiday-sync.open,
+            #card-employee-city.open {
+                flex: unset !important;
+            }
+
+            /* ⑤ sc-body — only override display when the card is OPEN.
+               The shared CSS already hides .sc-body via display:none on the
+               closed state; we must NOT force display:block unconditionally
+               or collapse/expand stops working.                              */
+            #card-holiday-sync.open .sc-body,
+            #card-employee-city.open .sc-body {
+                display: block !important;
+                flex: unset !important;
+                overflow: visible !important;
+            }
+            /* Closed state: ensure display:none wins over any other rule */
+            #card-holiday-sync:not(.open) .sc-body,
+            #card-employee-city:not(.open) .sc-body {
+                display: none !important;
+            }
+
+            /* ⑥ sc-body-inner — block, visible */
+            #card-holiday-sync .sc-body-inner,
+            #card-employee-city .sc-body-inner {
+                display: block !important;
+                flex: unset !important;
+                overflow: visible !important;
+            }
+
+            /* ⑦ Holiday file list — bounded, vertical scroll only */
+            #card-holiday-sync .holiday-file-list {
+                flex: unset !important;
+                max-height: 220px !important;
+                overflow-y: auto !important;
+                overflow-x: hidden !important;
+            }
+
+            /* ⑧ Employee city table wrap — both axes scroll, bounded height.
+               Must NOT use overflow-y:visible (forces overflow-x:visible too). */
+            #card-employee-city .emc-scroll-wrap {
+                display: block !important;
+                flex: unset !important;
+                max-height: 60vh !important;
+                overflow-x: auto !important;
+                overflow-y: auto !important;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <!-- ── Sync Holiday content ───────────────────────────────────────── -->
+    <div class="settings-page">
+        <!-- ── Card 4: Sync Indian Holiday ───────────────────────────────── -->
+        <div class="sc-card open" id="card-holiday-sync">
+            <div class="sc-header" data-target="card-holiday-sync">
+                <div class="sc-header-left">
+                    <div class="sc-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+                    </div>
+                    <div>
+                        <div class="sc-title">Sync Master Holiday</div>
+                        <div class="sc-subtitle">Select a Holiday Master Excel file to sync</div>
+                    </div>
+                </div>
+                <svg class="sc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="sc-body">
+                <div class="sc-body-inner">
+                    <ul class="holiday-file-list" id="holidayFileList">
+                        <li class="holiday-file-item"><span style="color:var(--muted);font-style:italic;">Loading…</span></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+
+        <!-- ── Card 5: Mapped Employee City ──────────────────────────────── -->
+        <div class="sc-card sc-card-spaced open" id="card-employee-city">
+            <div class="sc-header" data-target="card-employee-city">
+                <div class="sc-header-left">
+                    <div class="sc-icon">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13S3 17 3 10a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+                    </div>
+                    <div>
+                        <div class="sc-title">Mapped Employee City</div>
+                        <div class="sc-subtitle">Assign Indian employees to their primary city</div>
+                    </div>
+                </div>
+                <svg class="sc-chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="6 9 12 15 18 9"/></svg>
+            </div>
+            <div class="sc-body">
+                <div class="sc-body-inner">
+                    <div class="emc-scroll-wrap">
+                        <table class="emc-table">
+                            <thead>
+                                <tr>
+                                    <th>Employee</th>
+                                    <th>City Mapping</th>
+                                </tr>
+                            </thead>
+                            <tbody id="emcTableBody">
+                                <tr><td colspan="2" style="text-align:center;color:var(--muted);font-style:italic;padding:18px;">Loading…</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <button class="btn-save emc-save-btn" id="emcSaveBtn">Save Mappings</button>
+                    <div class="alert rm-alert-spaced" id="emcAlert"></div>
+                </div>
+            </div>
+        </div>
+
+    </div><!-- /.settings-page -->
+</main>
+
+<script th:src="@{/static/holiday_agent_admin.js}"></script>
+<script th:src="@{/static/holiday_agent_sync_holiday.js}"></script>
+</body>
+</html>
