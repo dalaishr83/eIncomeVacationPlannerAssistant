@@ -1,0 +1,442 @@
+/* ── Settings page — holiday_agent_settings.css ─────────────────────────────
+   Extracted from admin/settings.html. Loaded exclusively on the Settings page.
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* ── Page shell — flex column to fill viewport ──────────────────────────── */
+.main {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.settings-page {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 20px calc(20px + env(safe-area-inset-bottom, 0px));
+    overflow: hidden;
+}
+
+.settings-page h1 {
+    font-size: 1.3rem; font-weight: 700;
+    color: var(--text); margin: 0 0 16px 0;
+    flex-shrink: 0;
+}
+
+/* ── Top row: two cards side by side ────────────────────────────────────── */
+.settings-top-row {
+    display: flex;
+    gap: 14px;
+    flex-shrink: 0;
+    margin-bottom: 14px;
+    align-items: flex-start;
+}
+
+.settings-top-row .sc-card {
+    flex: 1 1 0;
+    min-width: 0;
+    margin-bottom: 0;
+}
+
+/* ── Role management card — grows to fill remaining space ────────────────── */
+.settings-roles-row {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-roles-row .sc-card {
+    flex: 1 1 0;
+    min-height: 0;
+    margin-bottom: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: visible;
+}
+
+.settings-roles-row .sc-card.open .sc-body {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.settings-roles-row .sc-body-inner {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+.settings-roles-row .rm-layout {
+    flex: 1 1 0;
+    min-height: 0;
+    align-items: stretch;
+}
+
+.settings-roles-row .rm-controls {
+    align-self: center;
+    padding-top: 0;
+}
+
+.settings-roles-row .rm-panel {
+    flex: 1 1 0;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
+}
+
+.settings-roles-row .rm-list {
+    flex: 1 1 0;
+    max-height: none;
+    min-height: 0;
+}
+
+/* ── Collapsible card ────────────────────────────────────────────────────── */
+.sc-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    margin-bottom: 14px;
+    overflow: hidden;
+}
+
+.sc-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 14px 18px;
+    cursor: pointer;
+    user-select: none;
+    gap: 10px;
+    transition: background .12s;
+}
+.sc-header:hover { background: var(--bg); }
+
+.sc-header-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
+
+.sc-icon {
+    width: 30px; height: 30px; border-radius: 7px;
+    background: rgba(42,91,215,.1);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: var(--accent);
+}
+
+.sc-title {
+    font-size: .92rem; font-weight: 700; color: var(--text);
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.sc-subtitle { font-size: .75rem; color: var(--muted); margin-top: 1px; }
+
+.sc-chevron {
+    color: var(--muted); flex-shrink: 0;
+    transition: transform .22s ease;
+}
+.sc-card.open .sc-chevron { transform: rotate(180deg); }
+
+.sc-body {
+    display: none;
+    padding: 0 18px 18px;
+    border-top: 1px solid var(--border);
+}
+.sc-card.open .sc-body { display: block; }
+.sc-body-inner { padding-top: 16px; }
+
+/* ── Vacation type rows ───────────────────────────────────────────────────── */
+.type-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 7px 0; border-bottom: 1px solid var(--border);
+}
+.type-row:last-child { border-bottom: none; }
+.type-code  { font-weight: 700; width: 32px; font-size: .82rem; color: var(--text); flex-shrink: 0; }
+.type-label { flex: 1; color: var(--muted); font-size: .84rem; }
+.type-toggle { margin-left: auto; flex-shrink: 0; cursor: pointer; }
+
+/* ── Type-toggle label ───────────────────────────────────────────────────── */
+.type-toggle-label { font-size: .78rem; color: var(--muted); flex-shrink: 0; }
+
+/* ── Save button top margin ──────────────────────────────────────────────── */
+.btn-save-restricted { margin-top: 16px; }
+
+/* ── Role management alert top margin ────────────────────────────────────── */
+.rm-alert-spaced { margin-top: 12px; }
+
+/* ── Password sub-sections ───────────────────────────────────────────────── */
+.pw-section { margin-bottom: 18px; }
+.pw-section:last-child { margin-bottom: 0; }
+.pw-section-title {
+    font-size: .82rem; font-weight: 700; color: var(--text);
+    margin: 0 0 12px 0; display: flex; align-items: center; gap: 6px;
+}
+.pw-section-title::before {
+    content: '';
+    display: inline-block; width: 3px; height: 14px;
+    background: var(--accent); border-radius: 2px; flex-shrink: 0;
+}
+.pw-divider { border: none; border-top: 1px solid var(--border); margin: 18px 0; }
+
+/* ── Field rows ──────────────────────────────────────────────────────────── */
+.field-row { display: flex; flex-direction: column; gap: 5px; margin-bottom: 12px; }
+.field-row label { font-size: .78rem; color: var(--muted); font-weight: 600; }
+.field-row select,
+.field-row input[type=password] {
+    border: 1px solid var(--border); border-radius: 6px;
+    padding: 7px 10px; font-size: .84rem;
+    width: 100%; max-width: 340px;
+    background: var(--bg); color: var(--text);
+    transition: border-color .15s;
+}
+.field-row select:focus,
+.field-row input[type=password]:focus {
+    outline: none; border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(42,91,215,.1);
+}
+
+/* ── Buttons ─────────────────────────────────────────────────────────────── */
+.btn-save {
+    background: var(--accent); color: #fff;
+    border: none; border-radius: 6px;
+    padding: 8px 18px; cursor: pointer;
+    font-size: .84rem; font-weight: 600;
+    transition: background .12s;
+}
+.btn-save:hover { background: var(--accent-hover); }
+.btn-save:active { transform: scale(.98); }
+
+/* ── Alert banners ───────────────────────────────────────────────────────── */
+.alert {
+    padding: 9px 13px; border-radius: 6px;
+    font-size: .83rem; margin-top: 10px; display: none;
+}
+.alert.success { background: #d1fae5; color: #065f46; }
+.alert.error   { background: #fee2e2; color: #991b1b; }
+
+/* ── Description text ────────────────────────────────────────────────────── */
+.sc-desc { font-size: .82rem; color: var(--muted); margin: 0 0 14px 0; line-height: 1.5; }
+
+/* ── Role management dual-panel layout ───────────────────────────────────── */
+.rm-layout { display: flex; align-items: flex-start; gap: 10px; }
+
+.rm-panel { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+
+.rm-panel-label {
+    font-size: .78rem; font-weight: 700; color: var(--muted);
+    margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: .05em;
+}
+
+.rm-list {
+    list-style: none; margin: 0; padding: 0;
+    border: 1px solid var(--border); border-radius: 6px;
+    min-height: 96px; max-height: min(30vh, 220px);
+    overflow-y: auto; background: var(--bg);
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.rm-list::-webkit-scrollbar { width: 5px; }
+.rm-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.rm-list li {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; font-size: .83rem; color: var(--text);
+    cursor: pointer; border-bottom: 1px solid var(--border); transition: background .1s;
+}
+.rm-list li:last-child { border-bottom: none; }
+.rm-list li:hover { background: rgba(42,91,215,.06); }
+.rm-list li.selected { background: rgba(42,91,215,.1); color: var(--accent); font-weight: 600; }
+.rm-list li .rm-emp-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted); flex-shrink: 0; transition: background .1s;
+}
+.rm-list li.selected .rm-emp-dot { background: var(--accent); }
+.rm-list li.admin-item .rm-emp-dot { background: #7c3aed; }
+
+.rm-list-empty {
+    display: flex; align-items: center; justify-content: center;
+    min-height: 88px; font-size: .8rem; color: var(--muted);
+    font-style: italic; text-align: center; padding: 12px;
+}
+
+/* ── Middle controls ─────────────────────────────────────────────────────── */
+.rm-controls {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 8px;
+    padding-top: 24px; flex-shrink: 0;
+}
+
+.rm-btn {
+    width: 36px; height: 36px; border-radius: 8px;
+    border: 1px solid var(--border); background: var(--bg); color: var(--text);
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .12s, border-color .12s, color .12s; font-size: .8rem;
+}
+.rm-btn:hover:not(:disabled) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rm-btn:disabled { opacity: .35; cursor: not-allowed; }
+.rm-btn.rm-btn-promote { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rm-btn.rm-btn-promote:hover:not(:disabled) { background: var(--accent-hover); border-color: var(--accent-hover); }
+.rm-btn.rm-btn-promote:disabled { background: var(--border); border-color: var(--border); color: var(--muted); }
+
+/* ── Tablet: keep side-by-side but allow wrap ───────────────────────────── */
+@media (max-width: 768px) {
+    .settings-top-row {
+        flex-wrap: wrap;
+    }
+    .settings-top-row .sc-card {
+        flex: 1 1 calc(50% - 7px);
+        min-width: 240px;
+    }
+}
+
+/* ── Mobile: stack everything ────────────────────────────────────────────── */
+@media (max-width: 600px) {
+    .main { overflow-y: auto; }
+    .settings-page {
+        overflow: visible;
+        flex: unset;
+    }
+    .settings-top-row {
+        flex-direction: column;
+        gap: 14px;
+    }
+    .settings-top-row .sc-card {
+        flex: unset;
+        width: 100%;
+        min-width: 0;
+    }
+    .settings-roles-row {
+        flex: unset;
+    }
+    .settings-roles-row .sc-card {
+        flex: unset;
+        display: block;
+        overflow: hidden;
+    }
+    .settings-roles-row .sc-card.open .sc-body {
+        flex: unset;
+        display: block;
+        overflow: visible;
+    }
+    .settings-roles-row .sc-body-inner {
+        flex: unset;
+        display: block;
+        overflow: visible;
+    }
+    .settings-roles-row .rm-layout {
+        flex: unset;
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 12px;
+    }
+    .settings-roles-row .rm-controls {
+        align-self: unset;
+        width: 100%;
+        padding-top: 0;
+        flex-direction: row;
+        justify-content: center;
+    }
+    .settings-roles-row .rm-panel {
+        flex: unset;
+        width: 100%;
+        min-height: unset;
+        display: block;
+    }
+    .settings-roles-row .rm-list {
+        flex: unset;
+        min-height: 96px;
+        max-height: min(25vh, 180px);
+    }
+}
+
+@media (max-width: 480px) {
+    .settings-page { padding: 14px 12px calc(14px + env(safe-area-inset-bottom, 0px)); }
+    .settings-page h1 { font-size: 1.1rem; margin-bottom: 12px; }
+    .sc-header { padding: 12px 14px; }
+    .sc-body  { padding: 0 14px 14px; }
+    .field-row select,
+    .field-row input[type=password] { max-width: 100%; }
+    .settings-roles-row .rm-list { max-height: min(22vh, 160px); }
+    .rm-btn { width: 32px; height: 32px; }
+}
+
+/* ── Spaced card variant (Cards 4 & 5 below role management row) ─────────── */
+.sc-card-spaced { margin-top: 14px; }
+
+/* ── Card 4: Sync Indian Holiday ─────────────────────────────────────────── */
+.holiday-file-list {
+    list-style: none; margin: 0; padding: 0;
+    border: 1px solid var(--border); border-radius: 6px;
+    min-height: 72px; max-height: 220px; overflow-y: auto;
+    background: var(--bg);
+    scrollbar-width: thin; scrollbar-color: var(--border) transparent;
+}
+.holiday-file-list::-webkit-scrollbar { width: 5px; }
+.holiday-file-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+.holiday-file-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 8px 12px; font-size: .83rem; color: var(--text);
+    border-bottom: 1px solid var(--border); cursor: pointer;
+    transition: background .1s;
+}
+.holiday-file-item:last-child { border-bottom: none; }
+.holiday-file-item:hover { background: rgba(42,91,215,.06); }
+.holiday-file-item.selected { background: rgba(42,91,215,.1); }
+.holiday-file-item input[type=radio] { flex-shrink: 0; cursor: pointer; accent-color: var(--accent); }
+.holiday-file-item .hf-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Sync button inside each holiday file row */
+.hf-sync-btn {
+    flex-shrink: 0;
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 28px; height: 28px; padding: 0;
+    border: 1px solid var(--border); border-radius: 5px;
+    background: var(--surface); color: var(--accent);
+    cursor: pointer; transition: background .15s, color .15s;
+}
+.hf-sync-btn:hover:not(:disabled) { background: var(--accent); color: #fff; border-color: var(--accent); }
+.hf-sync-btn:disabled { opacity: .45; cursor: not-allowed; }
+.hf-sync-btn svg { pointer-events: none; }
+
+/* Spinning animation for the sync icon while loading */
+@keyframes hf-spin { to { transform: rotate(360deg); } }
+.hf-sync-btn.spinning svg { animation: hf-spin .7s linear infinite; }
+
+/* Alert injected above the file list in Card 4 */
+#holidaySyncAlert { margin-bottom: 10px; }
+
+/* ── Card 5: Mapped Employee City ────────────────────────────────────────── */
+.emc-table {
+    width: 100%; border-collapse: collapse; font-size: .83rem;
+}
+.emc-table th {
+    text-align: left; padding: 7px 10px;
+    background: var(--surface); border-bottom: 2px solid var(--border);
+    font-size: .75rem; font-weight: 700; color: var(--muted);
+    text-transform: uppercase; letter-spacing: .04em;
+}
+.emc-table td {
+    padding: 7px 10px; border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+.emc-table tr:last-child td { border-bottom: none; }
+.emc-table tr:hover td { background: rgba(42,91,215,.04); }
+
+.emc-employee-name { font-weight: 600; color: var(--text); }
+
+.emc-city-options { display: flex; flex-wrap: wrap; gap: 8px 16px; }
+.emc-city-option  { display: flex; align-items: center; gap: 5px; font-size: .82rem; color: var(--text); cursor: pointer; }
+.emc-city-option input[type=radio] { cursor: pointer; accent-color: var(--accent); }
+.emc-city-option .emc-city-value   { color: var(--muted); font-size: .76rem; margin-left: 2px; }
+
+.emc-save-btn {
+    margin-top: 14px;
+}
+
+.emc-scroll-wrap {
+    overflow-x: auto;
+}
+
+@media (max-width: 600px) {
+    .emc-city-options { flex-direction: column; gap: 6px; }
+}

@@ -6,6 +6,7 @@ import com.holidayleave.assistant.model.FileInfo;
 import com.holidayleave.assistant.model.LeaveRecord;
 import com.holidayleave.assistant.model.VacationType;
 import com.holidayleave.assistant.service.*;
+import com.holidayleave.assistant.service.MasterExcelProvisioningService.ProvisionResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -39,6 +40,9 @@ public class AdminController {
     @Autowired private SecretService secretService;
     @Autowired private AuditService auditService;
     @Autowired private SyncService syncService;
+    @Autowired private MasterExcelProvisioningService provisioningService;
+    @Autowired private HolidaySettingsService   holidaySettingsService;
+    @Autowired private IndianHolidaySyncService  indianHolidaySyncService;
 
     // ── Page routes ───────────────────────────────────────────────────────────
 
@@ -276,6 +280,213 @@ public class AdminController {
         } catch (IOException e) {
             return ResponseEntity.status(500).body(err("Failed to update password: " + e.getMessage()));
         }
+    }
+
+    // ── Provision next-year master file API ───────────────────────────────────
+
+    /**
+     * GET /api/admin/provision-next-year/target-year
+     * Returns the year that would be used if the admin triggered provisioning right now.
+     * Used by the UI to show the correct year in the confirmation dialog.
+     */
+    @GetMapping("/api/admin/provision-next-year/target-year")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getProvisionTargetYear() {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("targetYear", resolveProvisionTargetYear());
+        return ResponseEntity.ok(r);
+    }
+
+    /**
+     * POST /api/admin/provision-next-year
+     * Copies the template, replaces the YEAR placeholder with the calculated target year,
+     * and places the result in /data as eIndkomst vacation <year>.xlsx.
+     */
+    @PostMapping("/api/admin/provision-next-year")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> provisionNextYear(HttpSession session) {
+        int targetYear = resolveProvisionTargetYear();
+        ProvisionResult result = provisioningService.provision(appState.getDataDir(), targetYear);
+
+        if (result.isSuccess()) {
+            appState.refreshKnownFiles();
+            String actingUser = (String) session.getAttribute("username");
+            if (actingUser == null) actingUser = "admin";
+            auditService.log("master_file_provisioned", actingUser, null,
+                    "Provisioned master file: " + result.getFilename(), "success", "api");
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("message",  "Master file provisioned: " + result.getFilename());
+            r.put("filename", result.getFilename());
+            r.put("files",    appState.getKnownFiles());
+            return ResponseEntity.ok(r);
+        }
+
+        return ResponseEntity.status(result.getHttpStatus()).body(err(result.getErrorMessage()));
+    }
+
+    /**
+     * Determines the target year for master-file provisioning.
+     * If a master file for the current system year already exists → currentYear + 1.
+     * Otherwise → currentYear (provision the missing current-year file first).
+     */
+    private int resolveProvisionTargetYear() {
+        int currentYear = LocalDate.now().getYear();
+        Path currentYearPath = Paths.get(appState.getDataDir(),
+                "eIndkomst vacation " + currentYear + ".xlsx");
+        return currentYearPath.toFile().exists() ? currentYear + 1 : currentYear;
+    }
+
+    // ── Holiday Settings API ──────────────────────────────────────────────────
+
+    /** GET /api/admin/holiday/files — list .xlsx files in DATA_DIR/holiday-upload/ */
+    @GetMapping("/api/admin/holiday/files")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> listHolidayFiles() {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("files", holidaySettingsService.listHolidayFiles(appState.getDataDir()));
+        return ResponseEntity.ok(r);
+    }
+
+    /** GET /api/admin/holiday/indian-employees — read IN employees from active master file */
+    @GetMapping("/api/admin/holiday/indian-employees")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getIndianEmployees() {
+        List<String> loaded = appState.getLoadedFiles();
+        if (loaded.isEmpty()) {
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("employees", Collections.<String>emptyList());
+            r.put("warning", "No master file is currently loaded.");
+            return ResponseEntity.ok(r);
+        }
+        String masterPath = loaded.get(0);
+        try {
+            // Use PlannerExcelReader which correctly skips header rows via layout detection
+            List<String> employees = reader.getIndianEmployeeNames(masterPath);
+            // Sync: ensure every IN employee has an entry in employee-mapping.json
+            Map<String, Object> mapping = holidaySettingsService.readMapping(appState.getDataDir());
+            boolean updated = syncMappingEmployees(mapping, employees);
+            if (updated) holidaySettingsService.writeMapping(appState.getDataDir(), mapping);
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("employees", employees);
+            return ResponseEntity.ok(r);
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body(err("Failed to read master file: " + e.getMessage()));
+        }
+    }
+
+    /** GET /api/admin/holiday/mapping — return employee-mapping.json contents */
+    @GetMapping("/api/admin/holiday/mapping")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getEmployeeMapping() {
+        return ResponseEntity.ok(holidaySettingsService.readMapping(appState.getDataDir()));
+    }
+
+    /**
+     * PUT /api/admin/holiday/mapping — save city selection for one employee.
+     * Body: { "employee": "...", "cities": "Bengaluru, Mysore" }
+     * {@code cities} is the comma-separated string value from the radio button
+     * (sourced directly from indian-city.json).
+     */
+    @PutMapping("/api/admin/holiday/mapping")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> updateEmployeeMapping(
+            @RequestBody Map<String, Object> body, HttpSession session) {
+        String employee  = (String) body.get("employee");
+        String citiesRaw = body.get("cities") != null ? String.valueOf(body.get("cities")).trim() : "";
+        if (employee == null || employee.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("employee is required."));
+        if (citiesRaw.isEmpty())
+            return ResponseEntity.badRequest().body(err("cities is required."));
+
+        try {
+            Map<String, Object> mapping = holidaySettingsService.readMapping(appState.getDataDir());
+            @SuppressWarnings("unchecked")
+            Map<String, Object> employees = (Map<String, Object>) mapping.computeIfAbsent(
+                    "employees", k -> new LinkedHashMap<String, Object>());
+            Map<String, Object> entry = new LinkedHashMap<>();
+            entry.put("city",    citiesRaw);   // stored as plain comma-separated string
+            entry.put("country", "IN");
+            employees.put(employee, entry);
+            holidaySettingsService.writeMapping(appState.getDataDir(), mapping);
+
+            String actingUser = (String) session.getAttribute("username");
+            if (actingUser == null) actingUser = "admin";
+            auditService.log("employee_city_mapped", actingUser, employee,
+                    "City mapped to " + citiesRaw, "success", "api");
+
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("message", "Mapping saved for '" + employee + "'.");
+            return ResponseEntity.ok(r);
+        } catch (IOException e) {
+            return ResponseEntity.status(500).body(err("Failed to save mapping: " + e.getMessage()));
+        }
+    }
+
+    /** GET /api/admin/holiday/cities — return city list from indian-city.json */
+    @GetMapping("/api/admin/holiday/cities")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> getIndianCities() {
+        Map<String, Object> r = new LinkedHashMap<>();
+        r.put("cities", holidaySettingsService.readCities(appState.getDataDir()));
+        return ResponseEntity.ok(r);
+    }
+
+    /**
+     * POST /api/admin/holiday/sync — run the Indian public-holiday sync workflow.
+     * Body: { "filename": "Holiday List - 2026.xlsx" }
+     */
+    @PostMapping("/api/admin/holiday/sync")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> syncIndianHolidays(
+            @RequestBody Map<String, String> body, HttpSession session) {
+        String filename = body.get("filename");
+        if (filename == null || filename.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("filename is required."));
+        if (filename.contains("/") || filename.contains("\\") || filename.contains(".."))
+            return ResponseEntity.badRequest().body(err("Invalid filename."));
+
+        String actingUser = (String) session.getAttribute("username");
+        if (actingUser == null) actingUser = "admin";
+
+        try {
+            IndianHolidaySyncService.SyncResult result =
+                    indianHolidaySyncService.sync(filename, actingUser);
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("message",          result.getMessage());
+            r.put("written",          result.getWritten());
+            r.put("skipped",          result.getSkipped());
+            r.put("skipped_weekend",  result.getSkippedWeekend());
+            r.put("skipped_conflict", result.getSkippedConflict());
+            r.put("employees",        result.getEmployees());
+            return ResponseEntity.ok(r);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(err(e.getMessage()));
+        } catch (IOException e) {
+            log.error("Holiday sync failed: {}", e.getMessage(), e);
+            return ResponseEntity.status(500).body(err("Sync failed: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Ensures every employee in {@code employees} has an entry in the mapping.
+     * New entries are initialised with an empty city list.
+     * Returns {@code true} if any entry was added.
+     */
+    @SuppressWarnings("unchecked")
+    private boolean syncMappingEmployees(Map<String, Object> mapping, List<String> employees) {
+        Map<String, Object> empMap = (Map<String, Object>) mapping.computeIfAbsent(
+                "employees", k -> new LinkedHashMap<String, Object>());
+        boolean changed = false;
+        for (String emp : employees) {
+            if (!empMap.containsKey(emp)) {
+                Map<String, Object> entry = new LinkedHashMap<>();
+                entry.put("city",    new ArrayList<String>());
+                entry.put("country", "IN");
+                empMap.put(emp, entry);
+                changed = true;
+            }
+        }
+        return changed;
     }
 
     // ── File management API ───────────────────────────────────────────────────

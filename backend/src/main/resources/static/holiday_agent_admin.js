@@ -27,7 +27,8 @@
     const sidebar         = document.getElementById("sidebar");
     const overlay         = document.getElementById("overlay");
     const statusDot       = document.getElementById("statusDot");
-    const topbarSubtitle  = document.getElementById("topbarSubtitle");
+    const topbarSubtitle      = document.getElementById("topbarSubtitle");
+    const provisionMasterBtn  = document.getElementById("provisionMasterBtn");
 
     // ── Boot sequence ──────────────────────────────────────────────────────────
     Promise.all([fetchEmployees(), fetchFiles(), fetchYears()]).catch(function () {});
@@ -138,6 +139,36 @@
             }
         } catch (e) {
             appendMessage("⚠️ Delete failed. Please try again.", "bot");
+        }
+    }
+
+    // ── Provision next-year master file (admin only) ───────────────────────────
+
+    async function provisionNextYear() {
+        var targetYear;
+        try {
+            var yr = await fetch("/api/admin/provision-next-year/target-year");
+            var yrData = await yr.json();
+            targetYear = yrData.targetYear;
+        } catch (e) {
+            appendMessage("⚠️ Could not determine target year. Please try again.", "bot");
+            return;
+        }
+        if (!confirm("Provision the Master Excel file for " + targetYear + "?\n\nThis will copy the template and replace all YEAR placeholders with " + targetYear + ".")) return;
+        setThinking(true);
+        try {
+            var res = await fetch("/api/admin/provision-next-year", { method: "POST" });
+            var data = await res.json();
+            if (data.error) {
+                appendMessage("⚠️ " + data.error, "bot");
+            } else {
+                renderFiles(data.files || []);
+                appendMessage("✅ " + data.message, "bot");
+            }
+        } catch (e) {
+            appendMessage("⚠️ Provisioning failed. Please try again.", "bot");
+        } finally {
+            setThinking(false);
         }
     }
 
@@ -396,6 +427,10 @@
         refreshBtn.addEventListener("click", function () {
             fetchEmployees(); fetchFiles(); fetchYears();
         });
+    }
+
+    if (provisionMasterBtn) {
+        provisionMasterBtn.addEventListener("click", provisionNextYear);
     }
 
     if (newChatBtn) {

@@ -134,6 +134,48 @@ public class PlannerExcelReader {
     }
 
     /**
+     * Returns all employee names from the planner sheet where the country-code
+     * column (column index 1, i.e. Column B) equals {@code "IN"} (case-insensitive).
+     *
+     * <p>Uses the same layout detection as {@link #load(String)} so header rows
+     * (month row, day row, weekday row) are correctly skipped.  Only data rows
+     * starting at {@code dataStartRowIdx} are examined.
+     *
+     * @param filePath absolute path to the master planner file
+     * @return ordered list of Indian employee names
+     * @throws IOException if the file cannot be opened or parsed
+     */
+    public List<String> getIndianEmployeeNames(String filePath) throws IOException {
+        List<String> result = new ArrayList<>();
+        try (FileInputStream fis = new FileInputStream(filePath);
+             XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
+
+            Sheet sheet = findPlannerSheet(workbook);
+            if (sheet == null) return result;
+
+            SheetLayout layout = detectLayout(sheet, filePath);
+            if (layout == null) return result;
+
+            for (int r = layout.dataStartRowIdx; r <= sheet.getLastRowNum(); r++) {
+                Row row = sheet.getRow(r);
+                if (row == null) continue;
+                Cell nameCell    = row.getCell(0);
+                Cell countryCell = row.getCell(1);
+                if (nameCell == null || countryCell == null) continue;
+                String name    = getCellString(nameCell).trim();
+                String country = getCellString(countryCell).trim();
+                if (name.isEmpty() || country.isEmpty()) continue;
+                if (isHeaderLike(name)) continue;
+                if ("IN".equalsIgnoreCase(country)) {
+                    result.add(name);
+                }
+            }
+        }
+        log.debug("getIndianEmployeeNames: {} IN employees found in {}", result.size(), filePath);
+        return result;
+    }
+
+    /**
      * Evicts the cache entry for the given absolute file path.
      * Must be called with the <em>master</em> file path, not the working copy path.
      *
