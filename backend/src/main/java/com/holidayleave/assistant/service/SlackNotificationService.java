@@ -181,6 +181,54 @@ public class SlackNotificationService {
     }
 
     /**
+     * Queues an async Slack notification that a Team Vacation Forecast was generated.
+     *
+     * <p>Routed to {@code SLACK_ALERT_WEBHOOK_URL} (the admin alert channel) because this is an
+     * admin-initiated operation. Falls back to the main webhook when {@code SLACK_ENABLED=true}
+     * and the alert URL is not configured.  Safe to call even when neither channel is configured
+     * (logs a warning and returns immediately).
+     *
+     * @param team           selected team name
+     * @param startDate      selected start date
+     * @param endDate        selected end date
+     * @param rowCount       number of data rows in the generated report
+     * @param summaryText    plain-text summary line
+     * @param actingUser     username of the admin who triggered the report
+     * @param slackTableText inline mrkdwn table from the forecast rows (may be null)
+     */
+    public void notifyTeamForecast(final String team,
+                                   final java.time.LocalDate startDate,
+                                   final java.time.LocalDate endDate,
+                                   final int rowCount,
+                                   final String summaryText,
+                                   final String actingUser,
+                                   final String slackTableText) {
+        // Route to the alert channel (same pattern as notifyMissingYearData)
+        String alertUrl = props.getSlack().getAlertWebhookUrl();
+        final String resolvedUrl;
+        if (alertUrl != null && !alertUrl.trim().isEmpty()) {
+            resolvedUrl = alertUrl.trim();
+        } else if (props.getSlack().isEnabled()
+                && props.getSlack().getWebhookUrl() != null
+                && !props.getSlack().getWebhookUrl().trim().isEmpty()) {
+            resolvedUrl = props.getSlack().getWebhookUrl().trim();
+        } else {
+            resolvedUrl = null;
+        }
+        if (resolvedUrl == null) {
+            log.debug("No Slack webhook configured — team forecast notification skipped.");
+            return;
+        }
+        log.debug("Queuing Slack team-forecast notification: team='{}', rows={}", team, rowCount);
+        executor.submit(new Runnable() {
+            @Override public void run() {
+                postTeamForecastWithRetry(team, startDate, endDate, rowCount,
+                        summaryText, actingUser, resolvedUrl, slackTableText);
+            }
+        });
+    }
+
+    /**
      * Queues an async Slack notification that a vacation was deleted via the
      * chat UI. Fires for <em>all</em> leave types — no code guard applied.
      * Returns immediately; safe to call even when disabled.
@@ -489,6 +537,120 @@ public class SlackNotificationService {
             +     "\"type\":\"context\","
             +     "\"elements\":[{\"type\":\"mrkdwn\","
             +       "\"text\":\"Triggered by Holiday Leave Assistant — operation blocked pending data provisioning\"}]"
+            +   "}"
+            + "]"
+            + "}";
+    }
+
+    // ── Team-forecast notification — private implementation ──────────────────
+
+    private void postTeamForecastWithRetry(String team,
+                                           java.time.LocalDate startDate,
+                                           java.time.LocalDate endDate,
+                                           int rowCount,
+                                           String summaryText,
+                                           String actingUser,
+                                           String webhookUrl,
+                                           String slackTableText) {
+        if (System.currentTimeMillis() < backoffUntil) {
+            log.debug("Slack team-forecast notification suppressed (back-off active)");
+            return;
+        }
+        for (int attempt = 1; attempt <= MAX_ATTEMPTS; attempt++) {
+            try {
+                doPostTeamForecast(team, startDate, endDate, rowCount,
+                        summaryText, actingUser, webhookUrl, slackTableText);
+                consecutiveFailures.set(0);
+                return;
+            } catch (Exception e) {
+                log.warn("Slack team-forecast notification attempt {}/{} failed: {}",
+                        attempt, MAX_ATTEMPTS, e.getMessage());
+                auditService.log("slack_notify_failed", "system", null,
+                        "action=team_forecast attempt=" + attempt + "/" + MAX_ATTEMPTS
+                        + " error=" + e.getMessage(),
+                        "error", "slack-notify");
+            }
+            if (attempt < MAX_ATTEMPTS) {
+                long delayMs = 5_000L * (long) Math.pow(2, attempt - 1);
+                try { Thread.sleep(delayMs); }
+                catch (InterruptedException ie) { Thread.currentThread().interrupt(); return; }
+            }
+        }
+        String msg = "Slack team-forecast notification failed after " + MAX_ATTEMPTS + " attempts";
+        log.error(msg);
+        auditService.log("slack_notify_failed", "system", null, msg, "error", "slack-notify");
+        recordFailureAndMaybeBackoff("team-forecast");
+    }
+
+    private void doPostTeamForecast(String team,
+                                    java.time.LocalDate startDate,
+                                    java.time.LocalDate endDate,
+                                    int rowCount,
+                                    String summaryText,
+                                    String actingUser,
+                                    String webhookUrl,
+                                    String slackTableText) throws Exception {
+        sendWebhook(buildTeamForecastPayload(team, startDate, endDate, rowCount,
+                summaryText, actingUser, slackTableText), webhookUrl);
+
+        log.info("Slack team-forecast notification sent: team='{}', rows={}", team, rowCount);
+        auditService.log("slack_notify_sent", "system", null,
+                "action=team_forecast team=" + team
+                + " start=" + startDate + " end=" + endDate
+                + " rows=" + rowCount,
+                "success", "slack-notify");
+    }
+
+    private String buildTeamForecastPayload(String team,
+                                            java.time.LocalDate startDate,
+                                            java.time.LocalDate endDate,
+                                            int rowCount,
+                                            String summaryText,
+                                            String actingUser,
+                                            String slackTableText) {
+        String teamEsc     = escape(team);
+        String startEsc    = escape(startDate.format(FMT));
+        String endEsc      = escape(endDate.format(FMT));
+        String requestedBy = escape(actingUser != null ? actingUser : "system");
+        String today       = escape(java.time.LocalDate.now().format(FMT));
+
+        // Inline forecast table — cap at 2900 chars to stay within Slack block text limit (3000)
+        String tableText = (slackTableText != null && !slackTableText.isEmpty())
+                ? slackTableText
+                : "_(no forecast rows generated)_";
+        if (tableText.length() > 2900) {
+            tableText = tableText.substring(0, 2900) + "\n…(truncated)";
+        }
+        String tableEsc = escape(tableText);
+
+        return "{"
+            + "\"text\":\"\\uD83D\\uDCCA Team Vacation Forecast Generated \\u2014 " + teamEsc + "\","
+            + "\"blocks\":["
+            +   "{"
+            +     "\"type\":\"header\","
+            +     "\"text\":{\"type\":\"plain_text\","
+            +       "\"text\":\"\\uD83D\\uDCCA Team Vacation Forecast Generated\",\"emoji\":true}"
+            +   "},"
+            +   "{"
+            +     "\"type\":\"section\","
+            +     "\"fields\":["
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Team:*\\n" + teamEsc + "\"},"
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Period:*\\n" + startEsc + " \\u2014 " + endEsc + "\"},"
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Employee-Month Rows:*\\n" + rowCount + "\"},"
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Consumed figures as of:*\\n" + today + "\"},"
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Status:*\\n:white_check_mark: Report generated successfully\"},"
+            +       "{\"type\":\"mrkdwn\",\"text\":\"*Requested by:*\\n" + requestedBy + "\"}"
+            +     "]"
+            +   "},"
+            +   "{"
+            +     "\"type\":\"section\","
+            +     "\"text\":{\"type\":\"mrkdwn\","
+            +       "\"text\":\"*Forecast Report:*\\n" + tableEsc + "\"}"
+            +   "},"
+            +   "{"
+            +     "\"type\":\"context\","
+            +     "\"elements\":[{\"type\":\"mrkdwn\","
+            +       "\"text\":\"Generated via Holiday Leave Assistant — Team Forecast\"}]"
             +   "}"
             + "]"
             + "}";

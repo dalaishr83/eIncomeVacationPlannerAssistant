@@ -8,6 +8,7 @@ import com.holidayleave.assistant.model.LeaveRecord;
 import com.holidayleave.assistant.model.VacationType;
 import com.holidayleave.assistant.service.*;
 import com.holidayleave.assistant.service.MasterExcelProvisioningService.ProvisionResult;
+import com.holidayleave.assistant.service.TeamForecastService.TeamForecastResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -42,8 +43,10 @@ public class AdminController {
     @Autowired private AuditService auditService;
     @Autowired private SyncService syncService;
     @Autowired private MasterExcelProvisioningService provisioningService;
-    @Autowired private HolidaySettingsService   holidaySettingsService;
-    @Autowired private IndianHolidaySyncService  indianHolidaySyncService;
+    @Autowired private HolidaySettingsService     holidaySettingsService;
+    @Autowired private IndianHolidaySyncService   indianHolidaySyncService;
+    @Autowired private TeamForecastService         teamForecastService;
+    @Autowired private SlackNotificationService    slackNotificationService;
 
     // ── Page routes ───────────────────────────────────────────────────────────
 
@@ -817,6 +820,103 @@ public class AdminController {
         r.put("errors",   errors);
         r.put("message",  approved + " PC vacation(s) approved as Vacation (V).");
         return ResponseEntity.ok(r);
+    }
+
+    // ── Team Forecast API ─────────────────────────────────────────────────────
+
+    /**
+     * POST /api/admin/team-forecast
+     * Body: { "team": "Indian Team" | "EIndkomst Team",
+     *         "startDate": "YYYY-MM-DD",
+     *         "endDate":   "YYYY-MM-DD" }
+     *
+     * Returns: { "html": "<table>...</table>", "rowCount": N, "summary": "..." }
+     *   or on error: { "error": "descriptive message" }
+     */
+    @PostMapping("/api/admin/team-forecast")
+    @ResponseBody
+    public ResponseEntity<Map<String, Object>> generateTeamForecast(
+            @RequestBody Map<String, String> body,
+            HttpSession session) {
+
+        // ── Validate team ─────────────────────────────────────────────────────
+        String team = body.get("team");
+        if (team == null || team.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("team is required."));
+        team = team.trim();
+        if (!"Indian Team".equalsIgnoreCase(team) && !"EIndkomst Team".equalsIgnoreCase(team))
+            return ResponseEntity.badRequest()
+                    .body(err("team must be 'Indian Team' or 'EIndkomst Team'."));
+
+        // ── Validate dates ────────────────────────────────────────────────────
+        String startStr = body.get("startDate");
+        String endStr   = body.get("endDate");
+        if (startStr == null || startStr.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("startDate is required."));
+        if (endStr == null || endStr.trim().isEmpty())
+            return ResponseEntity.badRequest().body(err("endDate is required."));
+
+        LocalDate startDate;
+        LocalDate endDate;
+        try {
+            startDate = LocalDate.parse(startStr.trim());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(err("Invalid startDate format. Use YYYY-MM-DD."));
+        }
+        try {
+            endDate = LocalDate.parse(endStr.trim());
+        } catch (Exception e) {
+            return ResponseEntity.badRequest()
+                    .body(err("Invalid endDate format. Use YYYY-MM-DD."));
+        }
+        if (startDate.isAfter(endDate))
+            return ResponseEntity.badRequest()
+                    .body(err("startDate must not be after endDate."));
+
+        // ── Generate forecast ─────────────────────────────────────────────────
+        String actingUser = (String) session.getAttribute("username");
+        if (actingUser == null) actingUser = "admin";
+        try {
+            TeamForecastResult result = teamForecastService.generateForecast(team, startDate, endDate);
+
+            // Async Slack notification — fires after report is successfully built
+            final String finalTeam      = team;
+            final LocalDate finalStart  = startDate;
+            final LocalDate finalEnd    = endDate;
+            final String finalUser      = actingUser;
+            final TeamForecastResult fr = result;
+            new Thread(new Runnable() {
+                @Override public void run() {
+                    try {
+                        slackNotificationService.notifyTeamForecast(
+                                finalTeam, finalStart, finalEnd, fr.getRowCount(),
+                                fr.getSummaryText(), finalUser, fr.getSlackTableText());
+                    } catch (Exception ex) {
+                        log.warn("Team forecast Slack notification failed (non-critical): {}", ex.getMessage());
+                    }
+                }
+            }, "tf-slack-notify").start();
+
+            auditService.log("team_forecast_generated", actingUser, null,
+                    "Team=" + team + " start=" + startDate + " end=" + endDate
+                    + " rows=" + result.getRowCount(), "success", "api");
+
+            Map<String, Object> r = new LinkedHashMap<>();
+            r.put("html",     result.getHtml());
+            r.put("rowCount", result.getRowCount());
+            r.put("summary",  result.getSummaryText());
+            return ResponseEntity.ok(r);
+
+        } catch (IOException e) {
+            log.error("Team forecast generation failed: {}", e.getMessage(), e);
+            // Distinguish a missing-file error (404) from a general I/O failure (500)
+            String msg = e.getMessage() != null ? e.getMessage() : "Failed to generate forecast.";
+            if (msg.contains("not found")) {
+                return ResponseEntity.status(404).body(err(msg));
+            }
+            return ResponseEntity.status(500).body(err("Failed to generate forecast report: " + msg));
+        }
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

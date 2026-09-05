@@ -192,6 +192,29 @@ html, body {
 .sidebar-section          { padding: 10px 12px 0; flex-shrink: 0; }
 .sidebar-section--fixed   { flex-shrink: 0; }
 
+/* Admin collapsible panel — flex-grows to fill available space when expanded */
+.sidebar-section--admin {
+  display: flex; flex-direction: column;
+  flex: 1 1 0; min-height: 0;
+  padding: 8px 0 4px 0;
+  overflow: hidden;
+}
+.sidebar-section--admin .section-content {
+  flex: 1 1 0; min-height: 0;
+  overflow-y: auto; overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255,255,255,.35) rgba(255,255,255,.07);
+}
+.sidebar-section--admin .section-content::-webkit-scrollbar { width: 6px; }
+.sidebar-section--admin .section-content::-webkit-scrollbar-track { background: rgba(255,255,255,.07); border-radius: 3px; }
+.sidebar-section--admin .section-content::-webkit-scrollbar-thumb { background: rgba(255,255,255,.35); border-radius: 3px; }
+
+/* collapsed-panel: shrinks panel to header height only (applied via JS) */
+.sidebar-section--admin.collapsed-panel,
+.sidebar-section--quick.collapsed-panel {
+  flex: 0 0 auto;
+}
+
 /* ── Year selector row — label inline-left, value inline-right (matches reference) */
 .sidebar-section--year {
   display: flex; align-items: center; gap: 10px;
@@ -821,3 +844,216 @@ html, body {
 }
 .vac-form-warning-icon { flex-shrink: 0; margin-top: 1px; }
 
+
+/* ── Team Forecast Modal ─────────────────────────────────────────────────── */
+
+/* Wider modal than Reset Password; flex column so result area scrolls within viewport */
+.tf-modal {
+  width: min(96vw, 720px);
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+/* Section wrapper inside the modal */
+.tf-section {
+  margin-bottom: 16px;
+}
+
+/* Bold sub-heading */
+.tf-section-label {
+  display: block;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  color: var(--muted);
+  margin-bottom: 8px;
+}
+
+.tf-required {
+  color: #dc2626;
+  margin-left: 2px;
+}
+
+/* Iconic radio-button cards */
+.tf-radio-group {
+  display: flex;
+  gap: 10px;
+}
+
+.tf-radio-card {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--muted);
+  background: var(--surface);
+  transition: border-color .15s, background .15s, color .15s;
+  position: relative;
+  user-select: none;
+}
+
+.tf-radio-card:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+
+.tf-radio-card.selected {
+  border-color: var(--accent);
+  background: rgba(42, 91, 215, .07);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.tf-radio-card.selected svg {
+  stroke: var(--accent);
+}
+
+/* Two-column date row */
+.tf-date-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.tf-date-field {
+  display: flex;
+  flex-direction: column;
+}
+
+/* Spinner shown during API call */
+.tf-spinner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 20px;
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.tf-spinner-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--accent); display: inline-block;
+  animation: dotBounce 1.2s ease-in-out infinite;
+}
+.tf-spinner-dot:nth-child(2) { animation-delay: .2s; }
+.tf-spinner-dot:nth-child(3) { animation-delay: .4s; }
+
+/* Result area — flex-grows to fill remaining modal height, scrolls vertically */
+.tf-result-area {
+  margin-top: 18px;
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  flex: 1 1 auto;
+  min-height: 80px;
+  overflow-y: auto;
+  overflow-x: auto;
+  scrollbar-width: thin;
+  scrollbar-color: #d1d5db #f1f5f9;
+}
+
+.tf-result-area::-webkit-scrollbar { height: 6px; width: 6px; }
+.tf-result-area::-webkit-scrollbar-track { background: #f1f5f9; border-radius: 3px; }
+.tf-result-area::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 3px; }
+
+/* Report table inside the result area */
+.tf-report-header {
+  margin: 0 0 10px;
+}
+
+.tf-report-title {
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--text);
+  margin: 0 0 4px;
+}
+
+.tf-report-meta {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.tf-report-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12.5px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  overflow: hidden;
+  min-width: 640px;
+}
+
+.tf-report-table thead tr {
+  background: #f1f5fb;
+}
+
+.tf-report-table th {
+  padding: 8px 11px;
+  text-align: left;
+  font-weight: 600;
+  color: var(--text);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+
+.tf-report-table th.tf-num,
+.tf-report-table td.tf-num {
+  text-align: right;
+}
+
+.tf-report-table td {
+  padding: 7px 11px;
+  color: var(--text);
+  border-bottom: 1px solid #f0f2f5;
+  vertical-align: middle;
+  white-space: nowrap;
+}
+
+.tf-report-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.tf-report-table tbody tr:hover td {
+  background: #f7f9fc;
+}
+
+.tf-util-high  { color: #16a34a; font-weight: 600; }
+.tf-util-mid   { color: #d97706; font-weight: 600; }
+.tf-util-low   { color: #dc2626; font-weight: 600; }
+
+.tf-no-records {
+  text-align: center;
+  color: var(--muted);
+  padding: 28px 0;
+  font-size: 13px;
+}
+
+/* Copy button — disabled state for border-style button */
+.tf-btn-copy:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+@media (max-width: 768px) {
+  .tf-modal { width: min(98vw, 720px); max-height: 92vh; }
+  .tf-date-row { grid-template-columns: 1fr; }
+  .tf-radio-group { flex-direction: column; }
+}
+
+/* On very narrow screens wrap action buttons so none are clipped */
+@media (max-width: 480px) {
+  .rp-actions { flex-wrap: wrap; }
+  .rp-actions .rp-btn-cancel,
+  .rp-actions .rp-btn-submit { flex: 1 1 auto; text-align: center; justify-content: center; }
+}

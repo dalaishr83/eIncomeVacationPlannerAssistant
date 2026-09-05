@@ -69,9 +69,11 @@
     </div>
 
     <!-- Admin Navigation Links -->
-    <div class="sidebar-section sidebar-section--fixed" style="padding:8px 0 4px 0;">
-        <div class="section-header"><span>Admin</span></div>
-        <div class="section-content" style="padding:4px 0;">
+    <div class="sidebar-section--admin">
+        <div class="section-header collapsible" data-target="adminContent">
+            <span>Admin</span><span class="chevron">▾</span>
+        </div>
+        <div id="adminContent" class="section-content" style="padding:4px 0;">
             <a href="/"
                th:classappend="${currentPage == 'dashboard'} ? ' sidebar-admin-link--active'"
                class="sidebar-admin-link">
@@ -120,6 +122,11 @@
                 </div>
                 <div id="provisionStatus" style="font-size:11px;color:#57606a;margin-top:4px;"></div>
             </div>
+
+            <button id="teamForecastBtn" class="sidebar-admin-link" style="background:none;border:none;cursor:pointer;width:100%;text-align:left;" title="Generate Team Vacation Forecast">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:6px;vertical-align:middle;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="2 20 22 20"/></svg>
+                Team Forecast
+            </button>
         </div>
     </div>
 
@@ -189,6 +196,77 @@
         <div class="rp-actions">
             <button class="rp-btn-cancel" id="rpCancelBtn" type="button">Cancel</button>
             <button class="rp-btn-submit" id="rpSubmitBtn" type="button">Update Password</button>
+        </div>
+    </div>
+</div>
+
+<!--/* ── Team Forecast Modal ────────────────────────────────────────────── */-->
+<div class="rp-backdrop" id="tfBackdrop" role="dialog" aria-modal="true" aria-labelledby="tfTitle">
+    <div class="rp-modal tf-modal">
+        <button class="rp-close" id="tfCloseBtn" aria-label="Close">&times;</button>
+        <h2 class="rp-modal-title" id="tfTitle">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:7px;vertical-align:middle;"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><polyline points="2 20 22 20"/></svg>
+            Team Vacation Forecast
+        </h2>
+        <p class="rp-modal-sub">Select a team and date range to generate the vacation forecast report.</p>
+
+        <!-- Team Selection -->
+        <div class="tf-section">
+            <span class="tf-section-label">Team</span>
+            <div class="tf-radio-group">
+                <label class="tf-radio-card" id="tfCardIndian">
+                    <input type="radio" name="tfTeam" value="Indian Team" style="position:absolute;opacity:0;width:0;height:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                    <span>Indian Team</span>
+                </label>
+                <label class="tf-radio-card" id="tfCardEIndkomst">
+                    <input type="radio" name="tfTeam" value="EIndkomst Team" style="position:absolute;opacity:0;width:0;height:0;">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                    <span>EIndkomst Team</span>
+                </label>
+            </div>
+        </div>
+
+        <!-- Date Range -->
+        <div class="tf-section">
+            <span class="tf-section-label">Date Range</span>
+            <div class="tf-date-row">
+                <div class="tf-date-field">
+                    <label class="rp-label" for="tfStartDate">Start Date <span class="tf-required">*</span></label>
+                    <input class="rp-input" type="date" id="tfStartDate" autocomplete="off">
+                </div>
+                <div class="tf-date-field">
+                    <label class="rp-label" for="tfEndDate">End Date <span class="tf-required">*</span></label>
+                    <input class="rp-input" type="date" id="tfEndDate" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <!-- Message area -->
+        <p class="rp-msg" id="tfMsg"></p>
+
+        <!-- Action buttons -->
+        <div class="rp-actions" style="margin-bottom:0;">
+            <button class="rp-btn-cancel" id="tfClearBtn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
+                Clear
+            </button>
+            <button class="rp-btn-cancel tf-btn-copy" id="tfCopyBtn" type="button" disabled>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+                Copy
+            </button>
+            <button class="rp-btn-cancel" id="tfCloseActionBtn" type="button">
+                Close
+            </button>
+            <button class="rp-btn-submit" id="tfSubmitBtn" type="button">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><polyline points="22 2 15 22 11 13 2 9 22 2"/></svg>
+                Submit
+            </button>
+        </div>
+
+        <!-- Result area (hidden until report is ready) -->
+        <div class="tf-result-area" id="tfResult" style="display:none;">
+            <div class="tf-result-inner" id="tfResultInner"></div>
         </div>
     </div>
 </div>

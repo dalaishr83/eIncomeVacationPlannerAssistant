@@ -511,22 +511,42 @@
         }, { passive: true });
     }
 
-    // Collapsible sections
-    document.querySelectorAll(".collapsible").forEach(function (header) {
-        var target = header.dataset["target"];
-        if (!target) return;
-        var content = document.getElementById(target);
-        if (!content) return;
-        if (target === "fileListContent") {
-            header.classList.add("open");   // keep files expanded for admin
-        } else {
-            header.classList.add("open");
+    // ── Mutually exclusive Admin / Quick Questions accordion ─────────────────
+    (function () {
+        var adminHeader  = document.querySelector("[data-target='adminContent']");
+        var quickHeader  = document.querySelector("[data-target='chipsContent']");
+        var adminContent = document.getElementById("adminContent");
+        var quickContent = document.getElementById("chipsContent");
+        var adminSection = adminHeader && adminHeader.closest(".sidebar-section--admin");
+        var quickSection = quickHeader && quickHeader.closest(".sidebar-section--quick");
+
+        if (!adminHeader || !quickHeader || !adminContent || !quickContent) return;
+
+        function expand(openHeader, openContent, openSection,
+                        closeHeader, closeContent, closeSection) {
+            openHeader.classList.add("open");
+            openContent.classList.remove("collapsed");
+            openSection.classList.remove("collapsed-panel");
+
+            closeHeader.classList.remove("open");
+            closeContent.classList.add("collapsed");
+            closeSection.classList.add("collapsed-panel");
         }
-        header.addEventListener("click", function () {
-            var isOpen = header.classList.toggle("open");
-            content.classList.toggle("collapsed", !isOpen);
+
+        // Default state: Admin expanded, Quick Questions collapsed
+        expand(adminHeader,  adminContent,  adminSection,
+               quickHeader,  quickContent,  quickSection);
+
+        adminHeader.addEventListener("click", function () {
+            expand(adminHeader,  adminContent,  adminSection,
+                   quickHeader,  quickContent,  quickSection);
         });
-    });
+
+        quickHeader.addEventListener("click", function () {
+            expand(quickHeader,  quickContent,  quickSection,
+                   adminHeader,  adminContent,  adminSection);
+        });
+    }());
 
     if (statusDot) statusDot.classList.add("online");
 
@@ -864,5 +884,254 @@
             quickChips.appendChild(chip);
         });
     }
+
+})();
+
+// ── Team Forecast Modal ────────────────────────────────────────────────────
+(function () {
+    "use strict";
+
+    var backdrop        = document.getElementById("tfBackdrop");
+    var openBtn         = document.getElementById("teamForecastBtn");
+    var closeBtn        = document.getElementById("tfCloseBtn");
+    var closeActionBtn  = document.getElementById("tfCloseActionBtn");
+    var submitBtn       = document.getElementById("tfSubmitBtn");
+    var clearBtn        = document.getElementById("tfClearBtn");
+    var copyBtn         = document.getElementById("tfCopyBtn");
+    var msgEl           = document.getElementById("tfMsg");
+    var resultArea      = document.getElementById("tfResult");
+    var resultInner     = document.getElementById("tfResultInner");
+    var startInput      = document.getElementById("tfStartDate");
+    var endInput        = document.getElementById("tfEndDate");
+
+    if (!backdrop || !openBtn) return;
+
+    // ── Modal open / close ─────────────────────────────────────────────────
+
+    function openModal() {
+        clearForm();
+        backdrop.classList.add("rp-open");
+    }
+
+    function closeModal() {
+        backdrop.classList.remove("rp-open");
+        clearForm();
+    }
+
+    function clearForm() {
+        // Deselect all radio cards
+        backdrop.querySelectorAll(".tf-radio-card").forEach(function (card) {
+            card.classList.remove("selected");
+            var radio = card.querySelector("input[type=radio]");
+            if (radio) radio.checked = false;
+        });
+        if (startInput) startInput.value = "";
+        if (endInput)   endInput.value   = "";
+        setMsg("", "");
+        hideResult();
+        if (submitBtn) submitBtn.disabled = false;
+        if (copyBtn)   copyBtn.disabled   = true;
+    }
+
+    function hideResult() {
+        if (resultArea)  resultArea.style.display  = "none";
+        if (resultInner) resultInner.innerHTML      = "";
+    }
+
+    function setMsg(text, type) {
+        if (!msgEl) return;
+        msgEl.textContent = text;
+        msgEl.className   = "rp-msg" + (type ? " rp-" + type : "");
+    }
+
+    // ── Radio card selection ───────────────────────────────────────────────
+
+    backdrop.addEventListener("click", function (e) {
+        var card = e.target.closest(".tf-radio-card");
+        if (!card) return;
+        backdrop.querySelectorAll(".tf-radio-card").forEach(function (c) {
+            c.classList.remove("selected");
+            var r = c.querySelector("input[type=radio]");
+            if (r) r.checked = false;
+        });
+        card.classList.add("selected");
+        var radio = card.querySelector("input[type=radio]");
+        if (radio) radio.checked = true;
+        // Clear any team-not-selected error
+        if (msgEl && msgEl.textContent.indexOf("team") !== -1) setMsg("", "");
+    });
+
+    // ── Submit ─────────────────────────────────────────────────────────────
+
+    if (submitBtn) {
+        submitBtn.addEventListener("click", async function () {
+            setMsg("", "");
+
+            // Validate team
+            var selectedRadio = backdrop.querySelector("input[name='tfTeam']:checked");
+            if (!selectedRadio) {
+                setMsg("Please select a team.", "error");
+                return;
+            }
+            var team = selectedRadio.value;
+
+            // Validate dates
+            var startVal = startInput ? startInput.value : "";
+            var endVal   = endInput   ? endInput.value   : "";
+            if (!startVal) { setMsg("Start date is required.", "error"); return; }
+            if (!endVal)   { setMsg("End date is required.",   "error"); return; }
+            if (endVal < startVal) {
+                setMsg("Start date must not be after end date.", "error");
+                return;
+            }
+
+            // Lock UI and show spinner
+            submitBtn.disabled = true;
+            hideResult();
+            showSpinner();
+
+            try {
+                var res = await fetch("/api/admin/team-forecast", {
+                    method:  "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body:    JSON.stringify({ team: team, startDate: startVal, endDate: endVal })
+                });
+                var data = await res.json();
+
+                hideSpinner();
+
+                if (data.error) {
+                    setMsg(data.error, "error");
+                } else {
+                    setMsg("", "");
+                    showReport(data);
+                }
+            } catch (e) {
+                hideSpinner();
+                setMsg("Network error. Please try again.", "error");
+            } finally {
+                submitBtn.disabled = false;
+            }
+        });
+    }
+
+    // ── Spinner helpers ────────────────────────────────────────────────────
+
+    var spinnerEl = null;
+
+    function showSpinner() {
+        if (!resultArea || !resultInner) return;
+        spinnerEl = document.createElement("div");
+        spinnerEl.className = "tf-spinner";
+        spinnerEl.innerHTML =
+            '<span class="tf-spinner-dot"></span>' +
+            '<span class="tf-spinner-dot"></span>' +
+            '<span class="tf-spinner-dot"></span>' +
+            '<span style="margin-left:6px;">Generating forecast…</span>';
+        resultInner.innerHTML = "";
+        resultInner.appendChild(spinnerEl);
+        resultArea.style.display = "block";
+    }
+
+    function hideSpinner() {
+        if (resultInner) resultInner.innerHTML = "";
+        if (resultArea)  resultArea.style.display = "none";
+        spinnerEl = null;
+    }
+
+    // ── Report rendering ───────────────────────────────────────────────────
+
+    // Plain-text snapshot of the rendered report (for clipboard)
+    var lastReportText = "";
+
+    function showReport(data) {
+        if (!resultArea || !resultInner) return;
+        resultInner.innerHTML = "";
+        lastReportText = "";
+        if (data.html) {
+            // The backend returns a fully formed HTML fragment — inject it directly
+            resultInner.innerHTML = data.html;
+            // Build plain-text copy of the report from the rendered table
+            lastReportText = extractReportText(resultInner);
+            if (copyBtn) copyBtn.disabled = false;
+        } else {
+            resultInner.innerHTML = '<p class="tf-no-records">No vacation records found for the selected criteria.</p>';
+            if (copyBtn) copyBtn.disabled = true;
+        }
+        resultArea.style.display = "block";
+        // Scroll the result area to top
+        resultArea.scrollTop = 0;
+    }
+
+    /** Extracts a tab-separated plain-text representation from the rendered report DOM. */
+    function extractReportText(container) {
+        var lines = [];
+        // Title
+        var titleEl = container.querySelector(".tf-report-title");
+        if (titleEl) lines.push(titleEl.textContent.trim());
+        // Meta line
+        var metaEl = container.querySelector(".tf-report-meta");
+        if (metaEl) lines.push(metaEl.textContent.trim());
+        if (lines.length) lines.push("");
+        // Table headers + rows
+        var table = container.querySelector(".tf-report-table");
+        if (table) {
+            table.querySelectorAll("tr").forEach(function (row) {
+                var cells = row.querySelectorAll("th, td");
+                var cols = [];
+                cells.forEach(function (cell) { cols.push(cell.textContent.trim()); });
+                if (cols.length) lines.push(cols.join("\t"));
+            });
+        }
+        return lines.join("\n");
+    }
+
+    // ── Copy handler ───────────────────────────────────────────────────────
+
+    if (copyBtn) {
+        copyBtn.addEventListener("click", function () {
+            if (!lastReportText) return;
+            var originalLabel = copyBtn.innerHTML;
+
+            function onSuccess() {
+                copyBtn.innerHTML =
+                    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><polyline points="20 6 9 12 4 10"/><line x1="4" y1="10" x2="4" y2="20"/></svg>' +
+                    'Copied \u2713';
+                setTimeout(function () { copyBtn.innerHTML = originalLabel; }, 1500);
+            }
+
+            function onError() {
+                setMsg("Copy to clipboard failed.", "error");
+            }
+
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(lastReportText).then(onSuccess, onError);
+            } else {
+                // Fallback for older browsers
+                try {
+                    var ta = document.createElement("textarea");
+                    ta.value = lastReportText;
+                    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
+                    document.body.appendChild(ta);
+                    ta.select();
+                    document.execCommand("copy");
+                    document.body.removeChild(ta);
+                    onSuccess();
+                } catch (ex) {
+                    onError();
+                }
+            }
+        });
+    }
+
+    // ── Button wiring ──────────────────────────────────────────────────────
+
+    openBtn.addEventListener("click",        openModal);
+    closeBtn.addEventListener("click",       closeModal);
+    closeActionBtn.addEventListener("click", closeModal);
+    clearBtn.addEventListener("click",       clearForm);
+
+    // Intentionally NO backdrop click-to-close and NO Escape key listener
+    // so the modal stays open until the user explicitly presses Close.
 
 })();
