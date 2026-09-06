@@ -1,7 +1,6 @@
 package com.holidayleave.assistant.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.holidayleave.assistant.config.AppProperties;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,14 +22,14 @@ public class RestrictedVacationTypeService {
     private static final Logger log = LoggerFactory.getLogger(RestrictedVacationTypeService.class);
 
     @Autowired
-    private AppProperties props;
+    private AppState appState;
 
     private final ObjectMapper mapper = new ObjectMapper();
     private Path restrictedFilePath;
 
     @PostConstruct
     public void init() throws IOException {
-        Path dataDir = Paths.get(props.getDataDir()).toAbsolutePath();
+        Path dataDir = Paths.get(appState.getDataDir());
         restrictedFilePath = dataDir.resolve("restrictedVacationType")
                                     .resolve("restricted-vacation-types.json");
         Files.createDirectories(restrictedFilePath.getParent());

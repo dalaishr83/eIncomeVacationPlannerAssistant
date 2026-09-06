@@ -32,7 +32,7 @@ public class MasterExcelProvisioningService {
     private static final Logger log = LoggerFactory.getLogger(MasterExcelProvisioningService.class);
 
     private static final String TEMPLATE_SUBDIR   = "template";
-    private static final String TEMPLATE_FILENAME = "eIndkomst vacation-template.xlsx";
+    private static final String TEMPLATE_FILENAME = "eIndkomst-vacation-template.xlsx";
     private static final String STAGING_SUBDIR    = "staging";
     private static final String OUTPUT_PATTERN    = "eIndkomst vacation %d.xlsx";
 

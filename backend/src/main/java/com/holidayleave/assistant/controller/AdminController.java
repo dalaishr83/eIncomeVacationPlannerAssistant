@@ -149,23 +149,47 @@ public class AdminController {
 
     /**
      * GET /api/admin/settings/employee-credentials
-     * Returns [{username, employee_name}] for every employee-role credential entry.
-     * Used by the Settings page to populate the employee password-reset dropdown.
+     * Returns [{username, employee_name}] sourced from the active master Excel sheet.
+     * Every employee name found in the planner is included, merged with any existing
+     * credential entry so that username (if already provisioned) is preserved.
+     * Used by the Settings page Role Management widget and the password-reset dropdown.
      */
     @GetMapping("/api/admin/settings/employee-credentials")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getEmployeeCredentials() {
+        // Build a lookup of existing credentials keyed by employee_name (lower-cased).
         Map<String, Map<String, String>> all = secretService.readCredentials();
-        List<Map<String, String>> result = new ArrayList<>();
+        Map<String, Map<String, String>> byName = new LinkedHashMap<>();
         for (Map<String, String> entry : all.values()) {
-            if ("employee".equals(entry.get("role"))) {
-                Map<String, String> item = new LinkedHashMap<>();
-                item.put("username",      entry.get("username"));
-                item.put("employee_name", entry.get("employee_name"));
-                result.add(item);
+            String empName = entry.get("employee_name");
+            if (empName != null) byName.put(empName.toLowerCase(), entry);
+        }
+
+        // Load the full employee roster from the active master Excel sheet.
+        List<String> excelNames = new ArrayList<>();
+        String activePath = appState.resolveCurrentYearFilePath();
+        if (activePath == null) {
+            List<String> active = appState.getActiveFiles();
+            if (!active.isEmpty()) activePath = active.get(0);
+        }
+        if (activePath != null) {
+            try {
+                excelNames = reader.getEmployeeNames(activePath);
+            } catch (IOException e) {
+                log.warn("getEmployeeCredentials: could not read employee names from {}: {}", activePath, e.getMessage());
             }
         }
-        // Sort by employee_name for a predictable dropdown order.
+
+        List<Map<String, String>> result = new ArrayList<>();
+        for (String name : excelNames) {
+            Map<String, String> existing = byName.get(name.toLowerCase());
+            Map<String, String> item = new LinkedHashMap<>();
+            item.put("username",      existing != null ? existing.get("username") : "");
+            item.put("employee_name", name);
+            result.add(item);
+        }
+
+        // Sort by employee_name for a predictable order.
         result.sort((a, b) -> {
             String na = a.get("employee_name"); String nb = b.get("employee_name");
             if (na == null) na = ""; if (nb == null) nb = "";
@@ -416,6 +440,8 @@ public class AdminController {
      * POST /api/admin/provision-next-year
      * Copies the template, replaces the YEAR placeholder with the calculated target year,
      * and places the result in /data as eIndkomst vacation <year>.xlsx.
+     * After provisioning, seeds secret.json with any employees discovered across ALL
+     * master Excel files in DATA_DIR that are not yet present (incremental, non-destructive).
      */
     @PostMapping("/api/admin/provision-next-year")
     @ResponseBody
@@ -446,20 +472,40 @@ public class AdminController {
             appState.setActiveFiles(Collections.singletonList(pathToActivate));
             appState.refreshKnownFiles();
 
+            // Seed secret.json: iterate every master Excel file in DATA_DIR and
+            // provisionEmployee() for each name — same mechanism as FileController.upload().
+            // provisionEmployee() is idempotent: existing entries are never overwritten.
+            List<String> provisionedEmployees = new ArrayList<>();
+            for (String xlsxPath : appState.discoverExcelPaths()) {
+                try {
+                    List<String> names = reader.getEmployeeNames(xlsxPath);
+                    for (String name : names) {
+                        try {
+                            String uname = secretService.provisionEmployee(name);
+                            provisionedEmployees.add(name + " → " + uname);
+                        } catch (Exception ex) {
+                            log.warn("Credential provisioning skipped for '{}': {}", name, ex.getMessage());
+                        }
+                    }
+                } catch (IOException ex) {
+                    log.warn("Could not read employee names from '{}': {}", xlsxPath, ex.getMessage());
+                }
+            }
+
             String activeName = new File(pathToActivate).getName();
             String actingUser = (String) session.getAttribute("username");
             if (actingUser == null) actingUser = "admin";
             auditService.log("master_file_provisioned", actingUser, null,
                     "Provisioned: " + result.getFilename() + "; activated: " + activeName, "success", "api");
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("message",    "Master file provisioned: " + result.getFilename()
-                                + ". Active file: " + activeName);
-            r.put("filename",   result.getFilename());
-            r.put("files",      appState.getKnownFiles());
-            r.put("activeFile", activeName);
+            r.put("message",               "Master file provisioned: " + result.getFilename()
+                                           + ". Active file: " + activeName);
+            r.put("filename",              result.getFilename());
+            r.put("files",                 appState.getKnownFiles());
+            r.put("activeFile",            activeName);
+            r.put("provisioned_employees", provisionedEmployees);
             return ResponseEntity.ok(r);
         }
-
 
         return ResponseEntity.status(result.getHttpStatus()).body(err(result.getErrorMessage()));
     }

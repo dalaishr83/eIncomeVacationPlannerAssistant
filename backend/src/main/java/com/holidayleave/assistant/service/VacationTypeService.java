@@ -1,6 +1,5 @@
 package com.holidayleave.assistant.service;
 
-import com.holidayleave.assistant.config.AppProperties;
 import com.holidayleave.assistant.model.VacationType;
 import javax.annotation.PostConstruct;
 import org.slf4j.Logger;
@@ -32,15 +31,14 @@ public class VacationTypeService {
     }
 
     @Autowired
-    private AppProperties props;
+    private AppState appState;
 
     private final ObjectMapper mapper = new ObjectMapper();
     private Path typesFilePath;
 
     @PostConstruct
     public void init() throws IOException {
-        // Resolve to absolute so it ends up in the same place regardless of working directory
-        typesFilePath = Paths.get(props.getDataDir()).toAbsolutePath().resolve("vacation_types.json");
+        typesFilePath = Paths.get(appState.getDataDir()).resolve("vacation_types.json");
         Files.createDirectories(typesFilePath.getParent());
         if (!Files.exists(typesFilePath)) {
             save(new ArrayList<>(DEFAULTS));
