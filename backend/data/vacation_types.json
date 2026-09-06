@@ -1,0 +1,29 @@
+[ {
+  "code" : "V",
+  "label" : "Vacation",
+  "color" : "FF92D050"
+}, {
+  "code" : "P",
+  "label" : "Public Holiday",
+  "color" : "FFFF0000"
+}, {
+  "code" : "PC",
+  "label" : "Personal Choice Holiday",
+  "color" : "FFFFFF00"
+}, {
+  "code" : "H",
+  "label" : "Half-day Vacation",
+  "color" : "FFFFC000"
+}, {
+  "code" : "E",
+  "label" : "Education",
+  "color" : "FF00B0F0"
+}, {
+  "code" : "O",
+  "label" : "Other",
+  "color" : "FFD3D3D3"
+}, {
+  "code" : "A",
+  "label" : "Available",
+  "color" : "FFFFFFFF"
+} ]

@@ -2,7 +2,15 @@
 .env
 
 # ── Runtime data (uploaded files and generated reports) ───────────────────────
-data/
+data/*
+!data/template/
+data/template/*
+!data/template/eIndkomst-vacation-template.xlsx
+data/restrictedVacationType/restricted-vacation-types.json
+data/secret/secret.json
+data/vacation_types.json
+data/holiday-mapping/employee-mapping.json
+data/holiday-mapping/indian-city.json
 reports/
 
 # ── Maven build output ────────────────────────────────────────────────────────
