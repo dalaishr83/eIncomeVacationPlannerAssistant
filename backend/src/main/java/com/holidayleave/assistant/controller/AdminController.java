@@ -1,5 +1,7 @@
 package com.holidayleave.assistant.controller;
 
+import com.holidayleave.assistant.config.AppProperties;
+import com.holidayleave.assistant.excel.IndianHolidayMasterExcelParser;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
 import com.holidayleave.assistant.model.FileInfo;
@@ -34,6 +36,7 @@ public class AdminController {
 
     private static final Logger log = LoggerFactory.getLogger(AdminController.class);
 
+    @Autowired private AppProperties appProperties;
     @Autowired private AppState appState;
     @Autowired private PlannerExcelReader reader;
     @Autowired private WorkingExcelWriter writer;
@@ -44,6 +47,7 @@ public class AdminController {
     @Autowired private SyncService syncService;
     @Autowired private MasterExcelProvisioningService provisioningService;
     @Autowired private HolidaySettingsService     holidaySettingsService;
+    @Autowired private IndianHolidayMasterExcelParser indianHolidayMasterExcelParser;
     @Autowired private IndianHolidaySyncService   indianHolidaySyncService;
     @Autowired private TeamForecastService         teamForecastService;
     @Autowired private SlackNotificationService    slackNotificationService;
@@ -374,6 +378,10 @@ public class AdminController {
                 java.nio.file.Files.copy(in, dest, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
             }
 
+            if ("india".equalsIgnoreCase(country)) {
+                indianHolidayMasterExcelParser.generateCityMapping(dest.toString(), appState.getDataDir());
+            }
+
             String actingUser = (String) session.getAttribute("username");
             if (actingUser == null) actingUser = "admin";
             auditService.log("holiday_master_uploaded", actingUser, null,
@@ -598,9 +606,25 @@ public class AdminController {
     @GetMapping("/api/admin/holiday/cities")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getIndianCities() {
+        Map<String, String> cities = holidaySettingsService.readCities(appState.getDataDir());
+        Set<String> excludedCities = parseExcludedCities();
+        if (!excludedCities.isEmpty()) {
+            cities.entrySet().removeIf(entry -> excludedCities.contains(entry.getKey().trim()));
+        }
         Map<String, Object> r = new LinkedHashMap<>();
-        r.put("cities", holidaySettingsService.readCities(appState.getDataDir()));
+        r.put("cities", cities);
         return ResponseEntity.ok(r);
+    }
+
+    private Set<String> parseExcludedCities() {
+        String configured = appProperties.getExcludedCityList();
+        if (configured == null || configured.trim().isEmpty()) return Collections.emptySet();
+        Set<String> excluded = new HashSet<>();
+        for (String city : configured.split(",")) {
+            String trimmed = city.trim();
+            if (!trimmed.isEmpty()) excluded.add(trimmed);
+        }
+        return excluded;
     }
 
     /**

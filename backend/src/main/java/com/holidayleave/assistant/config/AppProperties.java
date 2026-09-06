@@ -11,6 +11,7 @@ import org.springframework.stereotype.Component;
 public class AppProperties {
 
     private String dataDir = "data";
+    private String excludedCityList = "";
     private String reportOutputDir = "reports";
     private String excelFilePaths = "";
     private int syncIntervalSeconds = 300;
@@ -61,6 +62,8 @@ public class AppProperties {
 
     public String getDataDir() { return dataDir; }
     public void setDataDir(String dataDir) { this.dataDir = dataDir; }
+    public String getExcludedCityList() { return excludedCityList; }
+    public void setExcludedCityList(String excludedCityList) { this.excludedCityList = excludedCityList; }
     public String getReportOutputDir() { return reportOutputDir; }
     public void setReportOutputDir(String reportOutputDir) { this.reportOutputDir = reportOutputDir; }
     public String getExcelFilePaths() { return excelFilePaths; }

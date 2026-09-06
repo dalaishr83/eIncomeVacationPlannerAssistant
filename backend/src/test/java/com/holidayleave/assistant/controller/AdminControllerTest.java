@@ -1,5 +1,6 @@
 package com.holidayleave.assistant.controller;
 
+import com.holidayleave.assistant.config.AppProperties;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
 import com.holidayleave.assistant.model.AuditLogEntry;
@@ -38,6 +39,7 @@ import static org.mockito.Mockito.*;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class AdminControllerTest {
 
+    @Mock private AppProperties                appProperties;
     @Mock private AppState                      appState;
     @Mock private PlannerExcelReader            reader;
     @Mock private WorkingExcelWriter            writer;
@@ -46,6 +48,7 @@ class AdminControllerTest {
     @Mock private SecretService                 secretService;
     @Mock private AuditService                  auditService;
     @Mock private SyncService                   syncService;
+    @Mock private HolidaySettingsService        holidaySettingsService;
     @InjectMocks private AdminController controller;
 
     private MockHttpSession session;
@@ -57,6 +60,51 @@ class AdminControllerTest {
         when(appState.getLoadedFiles()).thenReturn(Collections.emptyList());
         when(appState.getDataDir()).thenReturn("/tmp/data");
         when(appState.getWorkingDir()).thenReturn("/tmp/working");
+    }
+
+    @Test
+    void getIndianCities_filtersConfiguredCitiesAndTrimsEntries() {
+        Map<String, String> cities = new LinkedHashMap<>();
+        cities.put("Karnataka", "Bengaluru, Mysore");
+        cities.put("West Bengal", "Kolkata");
+        cities.put("Maharashtra", "Mumbai, Pune");
+        when(holidaySettingsService.readCities("/tmp/data")).thenReturn(cities);
+        when(appProperties.getExcludedCityList()).thenReturn(" West Bengal, Kerala ");
+
+        ResponseEntity<Map<String, Object>> response = controller.getIndianCities();
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> filtered = (Map<String, String>) response.getBody().get("cities");
+        assertEquals(Arrays.asList("Karnataka", "Maharashtra"), new ArrayList<>(filtered.keySet()));
+    }
+
+    @Test
+    void getIndianCities_emptyExclusionPreservesAllCities() {
+        Map<String, String> cities = new LinkedHashMap<>();
+        cities.put("Karnataka", "Bengaluru, Mysore");
+        cities.put("West Bengal", "Kolkata");
+        when(holidaySettingsService.readCities("/tmp/data")).thenReturn(cities);
+        when(appProperties.getExcludedCityList()).thenReturn("");
+
+        ResponseEntity<Map<String, Object>> response = controller.getIndianCities();
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> filtered = (Map<String, String>) response.getBody().get("cities");
+        assertEquals(cities, filtered);
+    }
+
+    @Test
+    void getIndianCities_missingExclusionPreservesAllCities() {
+        Map<String, String> cities = new LinkedHashMap<>();
+        cities.put("Karnataka", "Bengaluru, Mysore");
+        when(holidaySettingsService.readCities("/tmp/data")).thenReturn(cities);
+        when(appProperties.getExcludedCityList()).thenReturn(null);
+
+        ResponseEntity<Map<String, Object>> response = controller.getIndianCities();
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> filtered = (Map<String, String>) response.getBody().get("cities");
+        assertEquals(cities, filtered);
     }
 
     // =========================================================================

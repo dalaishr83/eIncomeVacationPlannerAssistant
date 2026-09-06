@@ -1,5 +1,6 @@
 package com.holidayleave.assistant.excel;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.slf4j.Logger;
@@ -8,6 +9,9 @@ import org.springframework.stereotype.Component;
 
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.util.*;
@@ -152,6 +156,44 @@ public class IndianHolidayMasterExcelParser {
         }
         log.info("=== IndianHolidayMasterExcelParser: END ===");
         return result;
+    }
+
+    /**
+     * Rebuild the city mapping from the first two rows of the workbook.
+     * Row 1 supplies the keys and row 2 supplies the city values, beginning at column E.
+     *
+     * @param filePath absolute path to the Indian holiday master .xlsx file
+     * @param dataDir  absolute data directory containing the holiday-mapping directory
+     * @throws IOException if the workbook or mapping file cannot be read or written
+     */
+    public void generateCityMapping(String filePath, String dataDir) throws IOException {
+        Map<String, String> cities = new LinkedHashMap<>();
+
+        try (FileInputStream fis = new FileInputStream(filePath);
+             XSSFWorkbook workbook = new XSSFWorkbook(fis)) {
+            Sheet sheet = findBestSheet(workbook);
+            if (sheet != null) {
+                Row keyRow = sheet.getRow(0);
+                Row valueRow = sheet.getRow(1);
+                int lastColumn = Math.max(keyRow == null ? 0 : keyRow.getLastCellNum(),
+                        valueRow == null ? 0 : valueRow.getLastCellNum());
+
+                for (int col = 4; col < lastColumn; col++) {
+                    String key = getCellString(keyRow == null ? null : keyRow.getCell(col)).trim();
+                    if (key.isEmpty()) continue;
+                    String value = normalizeCity(getCellString(valueRow == null ? null : valueRow.getCell(col)));
+                    cities.put(key, value);
+                }
+            }
+        }
+
+        Path mappingDir = Paths.get(dataDir, "holiday-mapping");
+        Files.createDirectories(mappingDir);
+        Map<String, Object> mapping = new LinkedHashMap<>();
+        mapping.put("cities", cities);
+        new ObjectMapper().writerWithDefaultPrettyPrinter()
+                .writeValue(mappingDir.resolve("indian-city.json").toFile(), mapping);
+        log.info("Indian city mapping rebuilt with {} entries", cities.size());
     }
 
     // ── Header + date-column detection ───────────────────────────────────────
