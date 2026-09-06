@@ -12,6 +12,7 @@ data/vacation_types.json
 data/holiday-mapping/employee-mapping.json
 data/holiday-mapping/indian-city.json
 reports/
+backend/data/*
 
 # ── Maven build output ────────────────────────────────────────────────────────
 backend/target/
