@@ -13,6 +13,7 @@ import java.io.File;
 import java.io.IOException;
 import java.nio.file.Paths;
 import java.time.LocalDate;
+import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 
@@ -25,8 +26,8 @@ import java.util.*;
  *   <li>Load records from those files via {@link PlannerExcelReader}.</li>
  *   <li>Filter by team (Indian Team employees from employee-mapping.json, or all employees for
  *       EIndkomst Team).</li>
- *   <li>Calculate per-employee-per-month forecast metrics (vacation days in range, full-year
- *       entitlement, consumed-to-today, remaining, utilization %).</li>
+ *   <li>Pivot per-employee vacation counts into one row per employee, with one column per month
+ *       in the requested range. Months with no vacation show 0.</li>
  *   <li>Produce a self-contained HTML fragment that the controller embeds in the JSON response.</li>
  * </ol>
  */
@@ -100,16 +101,19 @@ public class TeamForecastService {
         // 3. Filter to the requested team
         List<LeaveRecord> teamRecords = filterByTeam(allRecords, team);
 
-        // 4. Build forecast rows
-        List<ForecastRow> rows = buildForecastRows(teamRecords, allRecords, startDate, endDate);
+        // 4. Build the ordered list of months covered by the date range
+        List<String> months = buildMonthList(startDate, endDate);
 
-        // 5. Build HTML report fragment
-        String html = buildHtmlFragment(rows, team, startDate, endDate);
+        // 5. Build pivoted forecast rows (one per employee)
+        List<ForecastRow> rows = buildForecastRows(teamRecords, months, startDate, endDate);
 
-        // 6. Build plain-text Slack table for inline notification
-        String slackTableText = buildSlackTableText(rows, team, startDate, endDate);
+        // 6. Build HTML report fragment
+        String html = buildHtmlFragment(rows, months, team, startDate, endDate);
 
-        // 7. Build plain-text summary for Slack
+        // 7. Build plain-text Slack table for inline notification
+        String slackTableText = buildSlackTableText(rows, months, team, startDate, endDate);
+
+        // 8. Build plain-text summary for Slack
         String summary = buildSummaryText(team, startDate, endDate, rows.size());
 
         return new TeamForecastResult(html, rows.size(), summary, slackTableText);
@@ -180,31 +184,43 @@ public class TeamForecastService {
         return new LinkedHashSet<>(empMap.keySet());
     }
 
+    // ── Month list ─────────────────────────────────────────────────────────────
+
+    /**
+     * Returns an ordered list of "MMMM yyyy" strings for every calendar month
+     * that overlaps the [startDate, endDate] range.
+     */
+    private List<String> buildMonthList(LocalDate startDate, LocalDate endDate) {
+        List<String> months = new ArrayList<>();
+        YearMonth cur = YearMonth.from(startDate);
+        YearMonth last = YearMonth.from(endDate);
+        while (!cur.isAfter(last)) {
+            months.add(cur.atDay(1).format(MONTH_YEAR));
+            cur = cur.plusMonths(1);
+        }
+        return months;
+    }
+
     // ── Forecast row calculation ───────────────────────────────────────────────
 
     /**
-     * Builds the list of {@link ForecastRow} objects.
+     * Builds the list of pivoted {@link ForecastRow} objects — one row per employee.
+     * Every employee has an entry for every month in {@code months}; missing months are 0.
      *
-     * <p>Grouping: one row per (employee, year-month) combination that falls within [startDate, endDate].
-     *
-     * @param teamRecords  already-filtered records for the selected team (used for "vacations in range")
-     * @param allRecords   full unfiltered record set (used for entitlement and consumed calculations)
+     * @param teamRecords already-filtered records for the selected team
+     * @param months      ordered list of "MMMM yyyy" labels for the date range
      */
     private List<ForecastRow> buildForecastRows(List<LeaveRecord> teamRecords,
-                                                List<LeaveRecord> allRecords,
+                                                List<String> months,
                                                 LocalDate startDate,
                                                 LocalDate endDate) {
         // Collect all valid (non-Available) vacation type codes
         Set<String> validCodes = getValidVacationCodes();
 
-        // Group by (employee, yearMonth) counting only the working days that fall within
-        // [startDate, endDate].  A single LeaveRecord may span many months (the Excel reader
-        // merges contiguous same-code cells into one run), so we:
-        //   1. Clip the record to the intersection with the requested window.
-        //   2. Derive the month key from clippedStart (not from r.startDate()).
-        //   3. Split clips that cross a calendar-month boundary so each month gets
-        //      its own accurate working-day count.
+        // Accumulate working days per (employee, month).
+        // Using LinkedHashMap to preserve first-seen employee order.
         Map<String, Map<String, Double>> vacsByEmployeeMonth = new LinkedHashMap<>();
+
         for (LeaveRecord r : teamRecords) {
             String code = extractCode(r.leaveType());
             if (!validCodes.contains(code)) continue;
@@ -218,7 +234,6 @@ public class TeamForecastService {
             // Walk day-by-day through the clipped span, accumulating working days per month
             LocalDate cur = clippedStart;
             while (!cur.isAfter(clippedEnd)) {
-                // Skip weekends (the Excel reader also skips weekends when counting days)
                 int dow = cur.getDayOfWeek().getValue(); // 1=Mon … 7=Sun
                 if (dow <= 5) {
                     String empKey   = r.employeeName();
@@ -231,63 +246,22 @@ public class TeamForecastService {
             }
         }
 
-        // Pre-compute per-employee entitlement and consumed values (for all relevant years)
-        // so we don't recalculate for every row
-        LocalDate today = LocalDate.now();
-        Map<String, Double> entitlementByEmp = new LinkedHashMap<>();
-        Map<String, Double> consumedByEmp    = new LinkedHashMap<>();
-
-        Set<String> employees = new LinkedHashSet<>(vacsByEmployeeMonth.keySet());
-
-        for (String emp : employees) {
-            // Entitlement = sum of ALL records for this employee across all years in the range
-            double entitled = 0.0;
-            double consumed = 0.0;
-
-            for (int year = startDate.getYear(); year <= endDate.getYear(); year++) {
-                final int y = year;
-                for (LeaveRecord r : allRecords) {
-                    if (!r.employeeName().equalsIgnoreCase(emp)) continue;
-                    if (r.year() != y) continue;
-                    String code = extractCode(r.leaveType());
-                    if (!validCodes.contains(code)) continue;
-                    entitled += r.days();
-                    // Consumed = records whose startDate is on or before today
-                    if (!r.startDate().isAfter(today)) {
-                        consumed += r.days();
-                    }
-                }
-            }
-
-            entitlementByEmp.put(emp, entitled);
-            consumedByEmp.put(emp, consumed);
-        }
-
-        // Build the final rows in order: employees appear in the order they first showed up,
-        // months in calendar order within each employee
+        // Build pivoted rows — every employee gets an entry for every month in the range (0 if absent)
         List<ForecastRow> rows = new ArrayList<>();
         for (Map.Entry<String, Map<String, Double>> empEntry : vacsByEmployeeMonth.entrySet()) {
-            String emp      = empEntry.getKey();
-            double entitled = entitlementByEmp.getOrDefault(emp, 0.0);
-            double consumed = consumedByEmp.getOrDefault(emp, 0.0);
-            double remaining = Math.max(0.0, entitled - consumed);
-            double utilPct   = entitled > 0 ? (consumed / entitled) * 100.0 : 0.0;
+            String emp = empEntry.getKey();
+            Map<String, Double> rawByMonth = empEntry.getValue();
 
-            // Sort months chronologically
-            List<Map.Entry<String, Double>> monthEntries = new ArrayList<>(empEntry.getValue().entrySet());
-            monthEntries.sort(Comparator.comparing(e -> parseMonthYear(e.getKey())));
-
-            for (Map.Entry<String, Double> monthEntry : monthEntries) {
-                rows.add(new ForecastRow(
-                        emp,
-                        monthEntry.getKey(),
-                        monthEntry.getValue(),
-                        entitled,
-                        consumed,
-                        remaining,
-                        utilPct
-                ));
+            // Build an ordered map with all months present (0 for missing months)
+            Map<String, Double> pivotMonths = new LinkedHashMap<>();
+            double total = 0.0;
+            for (String month : months) {
+                double v = rawByMonth.getOrDefault(month, 0.0);
+                pivotMonths.put(month, v);
+                total += v;
             }
+
+            rows.add(new ForecastRow(emp, pivotMonths, total));
         }
         return rows;
     }
@@ -323,18 +297,9 @@ public class TeamForecastService {
         return trimmed.toUpperCase();
     }
 
-    /** Parses a "MMMM yyyy" string into a LocalDate (always first of month) for sorting. */
-    private static LocalDate parseMonthYear(String monthYear) {
-        try {
-            return LocalDate.parse("01 " + monthYear, DateTimeFormatter.ofPattern("dd MMMM yyyy"));
-        } catch (Exception e) {
-            return LocalDate.MIN;
-        }
-    }
-
     // ── HTML fragment builder ──────────────────────────────────────────────────
 
-    private String buildHtmlFragment(List<ForecastRow> rows, String team,
+    private String buildHtmlFragment(List<ForecastRow> rows, List<String> months, String team,
                                      LocalDate startDate, LocalDate endDate) {
         LocalDate now = LocalDate.now();
         DateTimeFormatter genFmt = DateTimeFormatter.ofPattern("dd MMMM yyyy, HH:mm");
@@ -349,9 +314,7 @@ public class TeamForecastService {
           .append(escHtml(startDate.format(DISPLAY_DATE)))
           .append(" &ndash; ")
           .append(escHtml(endDate.format(DISPLAY_DATE)))
-          .append(" &nbsp;|&nbsp; <strong>Generated:</strong> ")
-          .append(escHtml(generatedAt))
-          .append(" &nbsp;|&nbsp; <strong>Consumed figures as of:</strong> ")
+          .append(" &nbsp;|&nbsp; <strong>As of:</strong> ")
           .append(escHtml(now.format(DISPLAY_DATE)))
           .append("</p></div>");
 
@@ -360,34 +323,35 @@ public class TeamForecastService {
             return sb.toString();
         }
 
+        // ── Table header ──
         sb.append("<table class=\"tf-report-table\"><thead><tr>")
-          .append("<th>Employee Name</th>")
-          .append("<th>Month</th>")
-          .append("<th class=\"tf-num\">Total Vacation(s)</th>")
-          .append("<th class=\"tf-num\">Total Entitled Holidays</th>")
-          .append("<th class=\"tf-num\">Total Consumed</th>")
-          .append("<th class=\"tf-num\">Total Remaining</th>")
-          .append("<th class=\"tf-num\">Utilization (%)</th>")
+          .append("<th>Employee Name</th>");
+        for (String month : months) {
+            sb.append("<th class=\"tf-num\">").append(escHtml(month)).append("</th>");
+        }
+        sb.append("<th class=\"tf-num\">Vacation</th>")
           .append("</tr></thead><tbody>");
 
+        // ── Data rows ──
+        double grandTotal = 0.0;
         for (ForecastRow row : rows) {
-            double util = row.getUtilizationPct();
-            String utilClass = util >= 80 ? "tf-util-high"
-                             : util >= 50 ? "tf-util-mid"
-                             : "tf-util-low";
-
             sb.append("<tr>")
-              .append("<td>").append(escHtml(row.getEmployeeName())).append("</td>")
-              .append("<td>").append(escHtml(row.getMonth())).append("</td>")
-              .append("<td class=\"tf-num\">").append(fmt(row.getTotalVacations())).append("</td>")
-              .append("<td class=\"tf-num\">").append(fmt(row.getTotalEntitled())).append("</td>")
-              .append("<td class=\"tf-num\">").append(fmt(row.getTotalConsumed())).append("</td>")
-              .append("<td class=\"tf-num\">").append(fmt(row.getTotalRemaining())).append("</td>")
-              .append("<td class=\"tf-num\"><span class=\"").append(utilClass).append("\">")
-              .append(String.format("%.1f%%", util))
-              .append("</span></td>")
+              .append("<td>").append(escHtml(row.getEmployeeName())).append("</td>");
+            for (String month : months) {
+                double v = row.getMonthVacations().getOrDefault(month, 0.0);
+                sb.append("<td class=\"tf-num\">").append(fmt(v)).append("</td>");
+            }
+            sb.append("<td class=\"tf-num\">").append(fmt(row.getTotalVacations())).append("</td>")
               .append("</tr>");
+            grandTotal += row.getTotalVacations();
         }
+
+        // ── Total row ──
+        int colSpan = months.size();
+        sb.append("<tr class=\"tf-total-row\">")
+          .append("<td colspan=\"").append(1 + colSpan).append("\" class=\"tf-total-label\">Total</td>")
+          .append("<td class=\"tf-num tf-total-value\">").append(fmt(grandTotal)).append("</td>")
+          .append("</tr>");
 
         sb.append("</tbody></table>");
         return sb.toString();
@@ -402,7 +366,7 @@ public class TeamForecastService {
      * monospace.  Output is capped at 2900 characters (safely under Slack's 3000-char
      * block text limit); if the full table exceeds that, it is truncated with a note.
      */
-    private String buildSlackTableText(List<ForecastRow> rows, String team,
+    private String buildSlackTableText(List<ForecastRow> rows, List<String> months, String team,
                                        LocalDate startDate, LocalDate endDate) {
         DateTimeFormatter genFmt = DateTimeFormatter.ofPattern("dd MMM yyyy");
         String header = "Team: " + team
@@ -414,56 +378,71 @@ public class TeamForecastService {
             return "```\n" + header + "\n\nNo vacation records found for the selected criteria.\n```";
         }
 
-        // Column widths (fixed so monospace aligns correctly)
-        final int W_EMP  = 26;
-        final int W_MON  = 16;
-        final int W_VAC  =  8;
-        final int W_ENT  =  9;
-        final int W_CON  =  9;
-        final int W_REM  =  9;
-        final int W_UTL  =  7;
+        // Column widths
+        final int W_EMP = 26;
+        final int W_MON = 14; // per month column
+        final int W_VAC =  8; // Vacation total column
 
-        String sep = repeat("-", W_EMP) + "+" + repeat("-", W_MON) + "+"
-                + repeat("-", W_VAC) + "+" + repeat("-", W_ENT) + "+"
-                + repeat("-", W_CON) + "+" + repeat("-", W_REM) + "+"
-                + repeat("-", W_UTL);
-
-        String colHeader = pad("Employee Name", W_EMP) + "|"
-                + pad("Month", W_MON) + "|"
-                + padL("Vacation", W_VAC) + "|"
-                + padL("Entitled", W_ENT) + "|"
-                + padL("Consumed", W_CON) + "|"
-                + padL("Remaining", W_REM) + "|"
-                + padL("Util%", W_UTL);
+        // Build separator and column header
+        StringBuilder sepSb = new StringBuilder(repeat("-", W_EMP)).append("+");
+        StringBuilder hdrSb = new StringBuilder(pad("Employee Name", W_EMP)).append("|");
+        for (String month : months) {
+            // Use abbreviated month label (e.g. "Sep 2026") to save width
+            String abbr = abbreviateMonth(month);
+            sepSb.append(repeat("-", W_MON)).append("+");
+            hdrSb.append(padL(abbr, W_MON)).append("|");
+        }
+        sepSb.append(repeat("-", W_VAC));
+        hdrSb.append(padL("Vacation", W_VAC));
 
         StringBuilder table = new StringBuilder();
         table.append("```\n").append(header).append("\n\n")
-             .append(colHeader).append("\n")
-             .append(sep).append("\n");
+             .append(hdrSb).append("\n")
+             .append(sepSb).append("\n");
 
         final int MAX_CHARS = 2900;
         int totalRows = rows.size();
+        double grandTotal = 0.0;
 
         for (int i = 0; i < totalRows; i++) {
             ForecastRow row = rows.get(i);
-            String line = pad(truncate(row.getEmployeeName(), W_EMP - 1), W_EMP) + "|"
-                    + pad(truncate(row.getMonth(), W_MON - 1), W_MON) + "|"
-                    + padL(fmt(row.getTotalVacations()), W_VAC) + "|"
-                    + padL(fmt(row.getTotalEntitled()), W_ENT) + "|"
-                    + padL(fmt(row.getTotalConsumed()), W_CON) + "|"
-                    + padL(fmt(row.getTotalRemaining()), W_REM) + "|"
-                    + padL(String.format("%.1f%%", row.getUtilizationPct()), W_UTL);
+            StringBuilder line = new StringBuilder(pad(truncate(row.getEmployeeName(), W_EMP - 1), W_EMP)).append("|");
+            for (String month : months) {
+                double v = row.getMonthVacations().getOrDefault(month, 0.0);
+                line.append(padL(fmt(v), W_MON)).append("|");
+            }
+            line.append(padL(fmt(row.getTotalVacations()), W_VAC));
+            grandTotal += row.getTotalVacations();
 
-            // Check if appending this line would exceed limit (leave room for truncation note)
-            if (table.length() + line.length() + 50 > MAX_CHARS) {
+            if (table.length() + line.length() + 60 > MAX_CHARS) {
                 table.append("... (").append(totalRows - i).append(" more rows — ")
                      .append(totalRows).append(" total)");
-                break;
+                table.append("\n```");
+                return table.toString();
             }
             table.append(line).append("\n");
         }
+
+        // Append total row
+        table.append(sepSb).append("\n");
+        String totalLine = pad("", W_EMP) + "|"
+                + repeat(" ", W_MON * months.size() + months.size() - 1)
+                + " Total: " + fmt(grandTotal);
+        table.append(totalLine).append("\n");
         table.append("```");
         return table.toString();
+    }
+
+    /**
+     * Converts a "MMMM yyyy" label to an abbreviated "MMM yyyy" (e.g. "September 2026" → "Sep 2026").
+     */
+    private static String abbreviateMonth(String monthYear) {
+        try {
+            LocalDate d = LocalDate.parse("01 " + monthYear, DateTimeFormatter.ofPattern("dd MMMM yyyy"));
+            return d.format(DateTimeFormatter.ofPattern("MMM yyyy"));
+        } catch (Exception e) {
+            return monthYear;
+        }
     }
 
     /** Right-pads {@code s} to {@code width} characters. */
@@ -496,9 +475,9 @@ public class TeamForecastService {
     private String buildSummaryText(String team, LocalDate startDate, LocalDate endDate, int rowCount) {
         return "Team: " + team
                 + " | Period: " + startDate.format(DISPLAY_DATE) + " – " + endDate.format(DISPLAY_DATE)
-                + " | Records: " + rowCount
+                + " | Employees: " + rowCount
                 + " | Status: Report generated successfully"
-                + " | Consumed figures as of: " + LocalDate.now().format(DISPLAY_DATE);
+                + " | As of: " + LocalDate.now().format(DISPLAY_DATE);
     }
 
     // ── Utility helpers ────────────────────────────────────────────────────────

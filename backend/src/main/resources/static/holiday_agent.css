@@ -849,7 +849,7 @@ html, body {
 
 /* Wider modal than Reset Password; flex column so result area scrolls within viewport */
 .tf-modal {
-  width: min(96vw, 720px);
+  width: min(96vw, 960px);
   max-height: 90vh;
   display: flex;
   flex-direction: column;
@@ -1028,9 +1028,30 @@ html, body {
   background: #f7f9fc;
 }
 
-.tf-util-high  { color: #16a34a; font-weight: 600; }
-.tf-util-mid   { color: #d97706; font-weight: 600; }
-.tf-util-low   { color: #dc2626; font-weight: 600; }
+/* Total row at the bottom of the forecast pivot table */
+.tf-report-table tr.tf-total-row td {
+  border-top: 2px solid var(--border);
+  background: #f1f5fb;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.tf-report-table tr.tf-total-row td.tf-total-label {
+  text-align: right;
+  padding-right: 16px;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.tf-report-table tr.tf-total-row td.tf-total-value {
+  color: #1d4ed8;
+  font-weight: 700;
+}
+
+/* Prevent hover background override on the total row */
+.tf-report-table tbody tr.tf-total-row:hover td {
+  background: #f1f5fb;
+}
 
 .tf-no-records {
   text-align: center;
@@ -1046,7 +1067,7 @@ html, body {
 }
 
 @media (max-width: 768px) {
-  .tf-modal { width: min(98vw, 720px); max-height: 92vh; }
+  .tf-modal { width: min(98vw, 960px); max-height: 92vh; }
   .tf-date-row { grid-template-columns: 1fr; }
   .tf-radio-group { flex-direction: column; }
 }

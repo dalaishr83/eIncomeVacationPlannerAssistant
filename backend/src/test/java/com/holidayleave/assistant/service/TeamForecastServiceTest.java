@@ -33,8 +33,7 @@ import static org.mockito.Mockito.*;
  *  - Missing master file → IOException with descriptive message
  *  - Indian Team filtering uses employee-mapping.json
  *  - EIndkomst Team → no employee filtering
- *  - Forecast row calculations (entitled, consumed, remaining, utilization)
- *  - Division-by-zero guard when entitled = 0
+ *  - Forecast row calculations (vacation count per month, total per employee)
  *  - No records in range → empty row list, HTML still generated
  *  - HTML fragment contains expected column headers
  */
@@ -242,14 +241,14 @@ class TeamForecastServiceTest {
     class ForecastCalculations {
 
         @Test
-        @DisplayName("Division-by-zero guard: utilization is 0 when entitled = 0")
-        void utilizationZero_whenEntitledIsZero(@org.junit.jupiter.api.io.TempDir Path tempDir)
+        @DisplayName("Division-by-zero guard: no exception when no vacation records exist")
+        void noRecords_noException(@org.junit.jupiter.api.io.TempDir Path tempDir)
                 throws IOException {
             when(appState.getDataDir()).thenReturn(tempDir.toString());
             Path file = tempDir.resolve("eIndkomst vacation 2026.xlsx");
             java.nio.file.Files.createFile(file);
 
-            // No records at all → entitled = 0 for any employee
+            // No records at all
             when(reader.load(anyString())).thenReturn(Collections.emptyList());
             when(holidaySettingsService.readMapping(anyString())).thenReturn(mappingFor("Alice"));
 
@@ -272,8 +271,8 @@ class TeamForecastServiceTest {
             when(appState.getDataDir()).thenReturn(tempDir.toString());
             java.nio.file.Files.createFile(tempDir.resolve("eIndkomst vacation 2026.xlsx"));
 
-            // Record within range (March 2026) → should appear
-            // Record outside range (November 2026) → should NOT appear
+            // Record within range (March 2026) → should appear as a month column
+            // Record outside range (November 2026) → should NOT appear as a month column
             List<LeaveRecord> records = Arrays.asList(
                     rec("Alice", "2026-03-01", "2026-03-05", 5, "V"),   // within Jan–Jun
                     rec("Alice", "2026-11-01", "2026-11-05", 5, "V")    // outside Jan–Jun
@@ -285,7 +284,7 @@ class TeamForecastServiceTest {
                     service.generateForecast("Indian Team",
                             LocalDate.of(2026, 1, 1), LocalDate.of(2026, 6, 30));
 
-            // March row must be present; November row must not appear
+            // March 2026 must be a column header; November must not
             assertThat(result.getHtml()).contains("March 2026");
             assertThat(result.getHtml()).doesNotContain("November 2026");
         }
@@ -311,7 +310,7 @@ class TeamForecastServiceTest {
         }
 
         @Test
-        @DisplayName("HTML report contains all expected column headers")
+        @DisplayName("HTML report contains all expected column headers (pivot layout)")
         void htmlReport_containsExpectedColumns(@org.junit.jupiter.api.io.TempDir Path tempDir)
                 throws IOException {
             when(appState.getDataDir()).thenReturn(tempDir.toString());
@@ -325,16 +324,18 @@ class TeamForecastServiceTest {
 
             TeamForecastService.TeamForecastResult result =
                     service.generateForecast("Indian Team",
-                            LocalDate.of(2026, 1, 1), LocalDate.of(2026, 12, 31));
+                            LocalDate.of(2026, 3, 1), LocalDate.of(2026, 3, 31));
 
             String html = result.getHtml();
+            // Pivot layout: Employee Name, dynamic month column(s), Vacation total
             assertThat(html).contains("Employee Name");
-            assertThat(html).contains("Month");
-            assertThat(html).contains("Total Vacation");
-            assertThat(html).contains("Total Entitled");
-            assertThat(html).contains("Total Consumed");
-            assertThat(html).contains("Total Remaining");
-            assertThat(html).contains("Utilization");
+            assertThat(html).contains("March 2026");   // dynamic month column
+            assertThat(html).contains("Vacation");      // total column
+            // Removed columns must NOT be present
+            assertThat(html).doesNotContain("Entitled");
+            assertThat(html).doesNotContain("Consumed");
+            assertThat(html).doesNotContain("Remaining");
+            assertThat(html).doesNotContain("Utilization");
         }
 
         @Test
@@ -376,7 +377,7 @@ class TeamForecastServiceTest {
 
         @Test
         @DisplayName("Long leave run is clipped: only working days inside window are counted, " +
-                     "and month key matches the window — not the run's own start month (regression for Jun-26/125 bug)")
+                     "and month column matches the window (regression for Jun-26/125 bug)")
         void longLeaveRun_clippedToWindow_correctMonthAndCount(
                 @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
             when(appState.getDataDir()).thenReturn(tempDir.toString());
@@ -386,7 +387,7 @@ class TeamForecastServiceTest {
             //   A leave run stored in Excel from 2026-06-01 to 2026-09-30 (all V)
             //   The Excel reader merged all those cells into one LeaveRecord with days=125 (approx).
             //   Requested window: 07 Sep 2026 – 18 Sep 2026.
-            //   Expected: month key = "September 2026", day count = 8 working days (Mon 7–Fri 11, Mon 14–Fri 18).
+            //   Expected: month column = "September 2026", day count = 10 working days (Mon 7–Fri 11, Mon 14–Fri 18).
             List<LeaveRecord> records = Collections.singletonList(
                     rec("Karina", "2026-06-01", "2026-09-30", 125, "V")
             );
@@ -397,35 +398,30 @@ class TeamForecastServiceTest {
                     service.generateForecast("EIndkomst Team",
                             LocalDate.of(2026, 9, 7), LocalDate.of(2026, 9, 18));
 
-            // Must show September 2026, NOT June 2026
+            // Only September 2026 is in the date range window, so only that month column appears
             assertThat(result.getHtml()).contains("September 2026");
             assertThat(result.getHtml()).doesNotContain("June 2026");
 
             // Exact working days in 07 Sep–18 Sep 2026:
             // Mon 7, Tue 8, Wed 9, Thu 10, Fri 11 = 5; Mon 14, Tue 15, Wed 16, Thu 17, Fri 18 = 5 → total 10
-            // The Total Vacation(s) cell must show 10 (clipped), not 125 (full span).
-            // In the HTML the columns are ordered:
-            //   Employee | Month | Total Vacation(s) | Total Entitled | Total Consumed | Remaining | Util%
-            // We verify the vacation cell (<td class="tf-num">10</td>) is present, and the
-            // month cell shows September — confirming both Bug 1 (month) and Bug 2 (count) are fixed.
-            assertThat(result.getHtml()).contains("class=\"tf-num\">10<");
+            // In the pivot layout the cell value for September 2026 and the Vacation total must both be 10.
+            assertThat(result.getHtml()).contains(">10<");
 
-            // Row count = 1 (one employee, one month)
+            // Row count = 1 (one employee)
             assertThat(result.getRowCount()).isEqualTo(1);
         }
 
         @Test
-        @DisplayName("Leave run spanning two months is split: each month gets its own row with correct count")
-        void leaveRunSpanningTwoMonths_splitIntoSeparateRows(
+        @DisplayName("Leave run spanning two months: employee has one row with both month columns")
+        void leaveRunSpanningTwoMonths_pivotedIntoSingleRow(
                 @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
             when(appState.getDataDir()).thenReturn(tempDir.toString());
             java.nio.file.Files.createFile(tempDir.resolve("eIndkomst vacation 2026.xlsx"));
 
             // Run: Mon 28 Sep – Fri 2 Oct 2026 (stored as one LeaveRecord)
             // Window: 01 Sep 2026 – 31 Oct 2026
-            // Expected: September row = 2 days (Mon 28, Tue 29 — Wed 30 is also Sep)
-            //           actually Sep 28=Mon, Sep 29=Tue, Sep 30=Wed = 3 days in Sep
-            //                    Oct 1=Thu, Oct 2=Fri = 2 days in Oct
+            // Sep 28=Mon, Sep 29=Tue, Sep 30=Wed = 3 days in Sep
+            // Oct 1=Thu, Oct 2=Fri = 2 days in Oct → total 5
             List<LeaveRecord> records = Collections.singletonList(
                     rec("Bob", "2026-09-28", "2026-10-02", 5, "V")
             );
@@ -436,12 +432,69 @@ class TeamForecastServiceTest {
                     service.generateForecast("EIndkomst Team",
                             LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 31));
 
+            // Both month labels appear as column headers
             assertThat(result.getHtml()).contains("September 2026");
             assertThat(result.getHtml()).contains("October 2026");
-            // Sep gets 3 working days (28, 29, 30); Oct gets 2 (1, 2)
+            // Sep column value = 3, Oct column value = 2, Vacation total = 5
             assertThat(result.getHtml()).contains(">3<");
             assertThat(result.getHtml()).contains(">2<");
-            assertThat(result.getRowCount()).isEqualTo(2);
+            assertThat(result.getHtml()).contains(">5<");
+            // Only ONE employee row (pivot layout)
+            assertThat(result.getRowCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Employee with vacation in only one month shows 0 for other months in range")
+        void employeeWithPartialMonths_zeroForMissingMonths(
+                @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
+            when(appState.getDataDir()).thenReturn(tempDir.toString());
+            java.nio.file.Files.createFile(tempDir.resolve("eIndkomst vacation 2026.xlsx"));
+
+            // Alice has vacation only in September; October should show 0
+            List<LeaveRecord> records = Collections.singletonList(
+                    rec("Alice", "2026-09-01", "2026-09-05", 5, "V")
+            );
+            when(reader.load(anyString())).thenReturn(records);
+            when(holidaySettingsService.readMapping(anyString())).thenReturn(mappingFor("Alice"));
+
+            TeamForecastService.TeamForecastResult result =
+                    service.generateForecast("Indian Team",
+                            LocalDate.of(2026, 9, 1), LocalDate.of(2026, 10, 31));
+
+            // Both month columns must appear
+            assertThat(result.getHtml()).contains("September 2026");
+            assertThat(result.getHtml()).contains("October 2026");
+            // October cell shows 0
+            assertThat(result.getHtml()).contains(">0<");
+            // One employee row
+            assertThat(result.getRowCount()).isEqualTo(1);
+        }
+
+        @Test
+        @DisplayName("Grand total row is present and equals sum of all employee vacation totals")
+        void grandTotalRow_isPresentAndCorrect(
+                @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
+            when(appState.getDataDir()).thenReturn(tempDir.toString());
+            java.nio.file.Files.createFile(tempDir.resolve("eIndkomst vacation 2026.xlsx"));
+
+            // 2026-09-07 = Mon, 2026-09-08 = Tue, 2026-09-09 = Wed → Alice: 3 working days
+            // 2026-09-10 = Thu, 2026-09-11 = Fri                   → Bob:   2 working days
+            // Grand total = 5
+            List<LeaveRecord> records = Arrays.asList(
+                    rec("Alice", "2026-09-07", "2026-09-09", 3, "V"),
+                    rec("Bob",   "2026-09-10", "2026-09-11", 2, "V")
+            );
+            when(reader.load(anyString())).thenReturn(records);
+            when(holidaySettingsService.readMapping(anyString())).thenReturn(mappingFor());
+
+            TeamForecastService.TeamForecastResult result =
+                    service.generateForecast("EIndkomst Team",
+                            LocalDate.of(2026, 9, 1), LocalDate.of(2026, 9, 30));
+
+            String html = result.getHtml();
+            assertThat(html).contains("tf-total-row");
+            // Grand total cell shows 5
+            assertThat(html).contains("tf-total-value\">5<");
         }
     }
 }
