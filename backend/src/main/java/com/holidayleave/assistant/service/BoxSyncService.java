@@ -6,6 +6,7 @@ import com.box.sdk.BoxCCGAPIConnection;
 import com.box.sdk.BoxDeveloperEditionAPIConnection;
 import com.box.sdk.BoxFile;
 import com.box.sdk.BoxFolder;
+import com.box.sdk.BoxGlobalSettings;
 import com.box.sdk.BoxItem;
 import com.box.sdk.IAccessTokenCache;
 import com.box.sdk.InMemoryLRUAccessTokenCache;
@@ -79,12 +80,23 @@ public class BoxSyncService {
             @Override public Thread newThread(Runnable r) {
                 Thread t = new Thread(r, "box-sync");
                 t.setDaemon(true);
+                t.setUncaughtExceptionHandler(new Thread.UncaughtExceptionHandler() {
+                    @Override public void uncaughtException(Thread th, Throwable ex) {
+                        log.error("BoxSyncService: uncaught exception on box-sync thread — {}", ex.toString(), ex);
+                    }
+                });
                 return t;
             }
         });
+        // Apply timeouts globally so the OAuth2 token-fetch HTTP call (which uses
+        // BoxGlobalSettings, not the per-connection setters) also times out.
+        BoxGlobalSettings.setConnectTimeout(props.getBox().getConnectTimeoutSeconds() * 1000);
+        BoxGlobalSettings.setReadTimeout(props.getBox().getReadTimeoutSeconds() * 1000);
         if (props.getBox().isEnabled()) {
-            log.info("BoxSyncService enabled — uploads will go to Box folder ID '{}'",
-                    props.getBox().getFolderId());
+            log.info("BoxSyncService enabled — uploads will go to Box folder ID '{}' (connectTimeout={}s readTimeout={}s)",
+                    props.getBox().getFolderId(),
+                    props.getBox().getConnectTimeoutSeconds(),
+                    props.getBox().getReadTimeoutSeconds());
         } else {
             log.info("BoxSyncService disabled (BOX_ENABLED=false)");
         }
@@ -118,7 +130,7 @@ public class BoxSyncService {
             log.debug("BoxSyncService disabled, skipping upload of '{}'", masterFile.getName());
             return;
         }
-        log.debug("Queuing Box upload for '{}' ({} bytes)", masterFile.getName(), masterFile.length());
+        log.info("BoxSyncService: queuing upload of '{}' ({} bytes)", masterFile.getName(), masterFile.length());
         executor.submit(new Runnable() {
             @Override public void run() {
                 uploadWithRetry(masterFile);
@@ -252,6 +264,7 @@ public class BoxSyncService {
         AppProperties.Box cfg = props.getBox();
         boolean useJwt = cfg.getJwtPrivateKey() != null && !cfg.getJwtPrivateKey().isEmpty();
 
+        BoxAPIConnection conn;
         if (useJwt) {
             log.debug("Building Box JWT connection for enterprise '{}'", cfg.getEnterpriseId());
             JWTEncryptionPreferences encPrefs = new JWTEncryptionPreferences();
@@ -260,14 +273,22 @@ public class BoxSyncService {
             encPrefs.setPrivateKeyPassword(cfg.getJwtPrivateKeyPassphrase());
 
             IAccessTokenCache tokenCache = new InMemoryLRUAccessTokenCache(10);
-            return BoxDeveloperEditionAPIConnection.getAppEnterpriseConnection(
+            conn = BoxDeveloperEditionAPIConnection.getAppEnterpriseConnection(
                     cfg.getEnterpriseId(), cfg.getClientId(), cfg.getClientSecret(),
                     encPrefs, tokenCache);
         } else {
             log.debug("Building Box CCG connection for enterprise '{}'", cfg.getEnterpriseId());
-            return BoxCCGAPIConnection.applicationServiceAccountConnection(
-                    cfg.getEnterpriseId(), cfg.getClientId(), cfg.getClientSecret());
+            conn = BoxCCGAPIConnection.applicationServiceAccountConnection(
+                    cfg.getClientId(), cfg.getClientSecret(), cfg.getEnterpriseId());
         }
+
+        // Box SDK defaults to 0 (no timeout), which causes the box-sync thread to
+        // block indefinitely when the Box API is slow or unreachable.
+        conn.setConnectTimeout(cfg.getConnectTimeoutSeconds() * 1000);
+        conn.setReadTimeout(cfg.getReadTimeoutSeconds() * 1000);
+        log.info("BoxSyncService: connection built (CCG={} connectTimeout={}s readTimeout={}s)",
+                !useJwt, cfg.getConnectTimeoutSeconds(), cfg.getReadTimeoutSeconds());
+        return conn;
     }
 
     private void logAttemptFailure(String filename, int attempt, String message) {

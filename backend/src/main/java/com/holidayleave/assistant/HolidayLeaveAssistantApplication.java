@@ -53,6 +53,13 @@ public class HolidayLeaveAssistantApplication {
                 if ((value.startsWith("\"") && value.endsWith("\"")) ||
                     (value.startsWith("'")  && value.endsWith("'"))) {
                     value = value.substring(1, value.length() - 1);
+                } else {
+                    // Strip inline comment: unquoted text after whitespace + '#'
+                    // e.g.  30    # TCP connect timeout  →  30
+                    int hashIdx = value.indexOf('#');
+                    if (hashIdx > 0 && Character.isWhitespace(value.charAt(hashIdx - 1))) {
+                        value = value.substring(0, hashIdx).trim();
+                    }
                 }
                 // Only set if not already provided by OS environment
                 if (System.getenv(key) == null && System.getProperty(key) == null) {

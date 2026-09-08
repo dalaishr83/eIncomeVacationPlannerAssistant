@@ -147,6 +147,8 @@ public class AppProperties {
         private String jwtPrivateKeyPassphrase = "";
         private String jwtPublicKeyId = "";
         private int retryBackoffSeconds = 60;
+        private int connectTimeoutSeconds = 30;
+        private int readTimeoutSeconds = 120;
 
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
@@ -166,5 +168,9 @@ public class AppProperties {
         public void setJwtPublicKeyId(String jwtPublicKeyId) { this.jwtPublicKeyId = jwtPublicKeyId; }
         public int getRetryBackoffSeconds() { return retryBackoffSeconds; }
         public void setRetryBackoffSeconds(int retryBackoffSeconds) { this.retryBackoffSeconds = retryBackoffSeconds; }
+        public int getConnectTimeoutSeconds() { return connectTimeoutSeconds; }
+        public void setConnectTimeoutSeconds(int connectTimeoutSeconds) { this.connectTimeoutSeconds = connectTimeoutSeconds; }
+        public int getReadTimeoutSeconds() { return readTimeoutSeconds; }
+        public void setReadTimeoutSeconds(int readTimeoutSeconds) { this.readTimeoutSeconds = readTimeoutSeconds; }
     }
 }
