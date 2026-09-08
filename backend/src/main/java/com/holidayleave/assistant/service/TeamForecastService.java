@@ -4,13 +4,22 @@ import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.model.ForecastRow;
 import com.holidayleave.assistant.model.LeaveRecord;
 import com.holidayleave.assistant.model.VacationType;
+import org.apache.poi.ss.usermodel.BorderStyle;
+import org.apache.poi.ss.usermodel.FillPatternType;
+import org.apache.poi.ss.usermodel.HorizontalAlignment;
+import org.apache.poi.ss.util.CellRangeAddress;
+import org.apache.poi.xssf.usermodel.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.awt.Color;
 import java.io.File;
+import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.LocalDate;
 import java.time.YearMonth;
@@ -61,18 +70,27 @@ public class TeamForecastService {
         private final String summaryText;
         /** Plain-text mrkdwn table for inline inclusion in the Slack notification. */
         private final String slackTableText;
+        /** Pivoted forecast rows — one per employee. Used by the Excel writer. */
+        private final List<ForecastRow> rows;
+        /** Ordered month labels ("MMMM yyyy") for the requested date range. */
+        private final List<String> months;
 
-        public TeamForecastResult(String html, int rowCount, String summaryText, String slackTableText) {
+        public TeamForecastResult(String html, int rowCount, String summaryText, String slackTableText,
+                                  List<ForecastRow> rows, List<String> months) {
             this.html           = html;
             this.rowCount       = rowCount;
             this.summaryText    = summaryText;
             this.slackTableText = slackTableText;
+            this.rows           = rows;
+            this.months         = months;
         }
 
-        public String getHtml()            { return html; }
-        public int    getRowCount()         { return rowCount; }
-        public String getSummaryText()     { return summaryText; }
-        public String getSlackTableText()  { return slackTableText; }
+        public String getHtml()                   { return html; }
+        public int    getRowCount()               { return rowCount; }
+        public String getSummaryText()            { return summaryText; }
+        public String getSlackTableText()         { return slackTableText; }
+        public List<ForecastRow> getRows()        { return rows; }
+        public List<String>      getMonths()      { return months; }
     }
 
     /**
@@ -116,7 +134,7 @@ public class TeamForecastService {
         // 8. Build plain-text summary for Slack
         String summary = buildSummaryText(team, startDate, endDate, rows.size());
 
-        return new TeamForecastResult(html, rows.size(), summary, slackTableText);
+        return new TeamForecastResult(html, rows.size(), summary, slackTableText, rows, months);
     }
 
     // ── Master file resolution ─────────────────────────────────────────────────
@@ -297,6 +315,187 @@ public class TeamForecastService {
         return trimmed.toUpperCase();
     }
 
+    // ── Excel report writer ────────────────────────────────────────────────────
+
+    /**
+     * Generates a Team Vacation Forecast Excel workbook from pre-computed forecast data
+     * and saves it to {@code {dataDir}/temp/}.
+     *
+     * <p>The layout matches the reference report:
+     * <ul>
+     *   <li>Row 1 — Title "Team Vacation Forecast Report"</li>
+     *   <li>Row 2 — Meta line (team, period, as-of date)</li>
+     *   <li>Row 3 — empty</li>
+     *   <li>Row 4 — Column headers: Employee Name | &lt;month columns&gt; | Vacation</li>
+     *   <li>Rows 5..N — Data rows (employee name, monthly day counts, total)</li>
+     *   <li>Row N+1 — Total row</li>
+     * </ul>
+     *
+     * @param rows      pivoted forecast rows already produced by {@link #generateForecast}
+     * @param months    ordered month labels ("MMMM yyyy") for the date range
+     * @param team      team name (for the meta row)
+     * @param startDate period start (for the meta row)
+     * @param endDate   period end (for the meta row)
+     * @param dataDir   base data directory — the file is written to {@code dataDir/temp/}
+     * @return absolute {@link Path} to the generated .xlsx file
+     * @throws IOException if the temp directory cannot be created or the workbook cannot be written
+     */
+    public Path writeForecastExcel(List<ForecastRow> rows,
+                                   List<String> months,
+                                   String team,
+                                   LocalDate startDate,
+                                   LocalDate endDate,
+                                   String dataDir) throws IOException {
+
+        // ── Ensure temp directory exists ──────────────────────────────────────
+        Path tempDir = Paths.get(dataDir, "temp");
+        Files.createDirectories(tempDir);
+
+        String filename = "team-forecast-" + System.currentTimeMillis() + ".xlsx";
+        Path outPath = tempDir.resolve(filename);
+
+        try (XSSFWorkbook wb = new XSSFWorkbook()) {
+            XSSFSheet sheet = wb.createSheet("Sheet1");
+
+            // ── Styles ────────────────────────────────────────────────────────
+            XSSFCellStyle titleStyle = wb.createCellStyle();
+            XSSFFont titleFont = wb.createFont();
+            titleFont.setBold(true);
+            titleFont.setFontHeightInPoints((short) 14);
+            titleStyle.setFont(titleFont);
+
+            XSSFCellStyle metaStyle = wb.createCellStyle();
+            XSSFFont metaFont = wb.createFont();
+            metaFont.setFontHeightInPoints((short) 11);
+            metaStyle.setFont(metaFont);
+
+            XSSFCellStyle headerStyle = wb.createCellStyle();
+            XSSFFont headerFont = wb.createFont();
+            headerFont.setBold(true);
+            headerFont.setColor(new XSSFColor(Color.WHITE, null));
+            headerStyle.setFont(headerFont);
+            headerStyle.setFillForegroundColor(new XSSFColor(new Color(31, 73, 125), null));
+            headerStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            headerStyle.setAlignment(HorizontalAlignment.CENTER);
+            setBorders(headerStyle);
+
+            XSSFCellStyle dataStyle = wb.createCellStyle();
+            setBorders(dataStyle);
+
+            XSSFCellStyle dataNumStyle = wb.createCellStyle();
+            dataNumStyle.setAlignment(HorizontalAlignment.CENTER);
+            setBorders(dataNumStyle);
+
+            XSSFCellStyle totalLabelStyle = wb.createCellStyle();
+            XSSFFont totalFont = wb.createFont();
+            totalFont.setBold(true);
+            totalLabelStyle.setFont(totalFont);
+            totalLabelStyle.setFillForegroundColor(new XSSFColor(new Color(217, 225, 242), null));
+            totalLabelStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            setBorders(totalLabelStyle);
+
+            XSSFCellStyle totalNumStyle = wb.createCellStyle();
+            totalNumStyle.setFont(totalFont);
+            totalNumStyle.setAlignment(HorizontalAlignment.CENTER);
+            totalNumStyle.setFillForegroundColor(new XSSFColor(new Color(217, 225, 242), null));
+            totalNumStyle.setFillPattern(FillPatternType.SOLID_FOREGROUND);
+            setBorders(totalNumStyle);
+
+            // ── Row 1: Title ──────────────────────────────────────────────────
+            XSSFRow titleRow = sheet.createRow(0);
+            XSSFCell titleCell = titleRow.createCell(0);
+            titleCell.setCellValue("Team Vacation Forecast Report");
+            titleCell.setCellStyle(titleStyle);
+
+            // ── Row 2: Meta ───────────────────────────────────────────────────
+            XSSFRow metaRow = sheet.createRow(1);
+            String metaText = "Team: " + team
+                    + "  |  Period: " + startDate.format(DISPLAY_DATE)
+                    + " \u2013 " + endDate.format(DISPLAY_DATE)
+                    + "  |  As of: " + LocalDate.now().format(DISPLAY_DATE);
+            XSSFCell metaCell = metaRow.createCell(0);
+            metaCell.setCellValue(metaText);
+            metaCell.setCellStyle(metaStyle);
+            // Merge across all data columns (A–F or wider depending on month count)
+            int lastCol = months.size() + 1; // Employee + months + Vacation
+            sheet.addMergedRegion(new CellRangeAddress(1, 1, 0, lastCol));
+
+            // Row 3 is intentionally left empty (matches reference layout).
+
+            // ── Row 4: Column headers ─────────────────────────────────────────
+            XSSFRow headerRow = sheet.createRow(3);
+            XSSFCell empHeader = headerRow.createCell(0);
+            empHeader.setCellValue("Employee Name");
+            empHeader.setCellStyle(headerStyle);
+
+            for (int m = 0; m < months.size(); m++) {
+                XSSFCell mCell = headerRow.createCell(m + 1);
+                mCell.setCellValue(months.get(m));
+                mCell.setCellStyle(headerStyle);
+            }
+            XSSFCell vacHeader = headerRow.createCell(months.size() + 1);
+            vacHeader.setCellValue("Vacation");
+            vacHeader.setCellStyle(headerStyle);
+
+            // ── Data rows ─────────────────────────────────────────────────────
+            double grandTotal = 0.0;
+            int dataRowIndex = 4; // row 5 (0-based index 4)
+            for (ForecastRow row : rows) {
+                XSSFRow dataRow = sheet.createRow(dataRowIndex++);
+                XSSFCell empCell = dataRow.createCell(0);
+                empCell.setCellValue(row.getEmployeeName());
+                empCell.setCellStyle(dataStyle);
+
+                for (int m = 0; m < months.size(); m++) {
+                    double v = row.getMonthVacations().getOrDefault(months.get(m), 0.0);
+                    XSSFCell numCell = dataRow.createCell(m + 1);
+                    numCell.setCellValue(v);
+                    numCell.setCellStyle(dataNumStyle);
+                }
+                XSSFCell totalCell = dataRow.createCell(months.size() + 1);
+                totalCell.setCellValue(row.getTotalVacations());
+                totalCell.setCellStyle(dataNumStyle);
+                grandTotal += row.getTotalVacations();
+            }
+
+            // ── Total row ─────────────────────────────────────────────────────
+            XSSFRow totalRow = sheet.createRow(dataRowIndex);
+            XSSFCell totalLabelCell = totalRow.createCell(0);
+            totalLabelCell.setCellValue("Total");
+            totalLabelCell.setCellStyle(totalLabelStyle);
+            for (int m = 0; m < months.size(); m++) {
+                XSSFCell blankCell = totalRow.createCell(m + 1);
+                blankCell.setCellStyle(totalNumStyle);
+            }
+            XSSFCell grandTotalCell = totalRow.createCell(months.size() + 1);
+            grandTotalCell.setCellValue(grandTotal);
+            grandTotalCell.setCellStyle(totalNumStyle);
+
+            // ── Column widths ─────────────────────────────────────────────────
+            sheet.setColumnWidth(0, 35 * 256); // Employee Name
+            for (int m = 0; m < months.size(); m++) {
+                sheet.setColumnWidth(m + 1, 16 * 256);
+            }
+            sheet.setColumnWidth(months.size() + 1, 12 * 256); // Vacation total
+
+            // ── Write to disk ─────────────────────────────────────────────────
+            try (FileOutputStream fos = new FileOutputStream(outPath.toFile())) {
+                wb.write(fos);
+            }
+        }
+
+        log.info("Team forecast Excel report written: {}", outPath);
+        return outPath;
+    }
+
+    /** Applies a thin border on all four sides of a cell style. */
+    private static void setBorders(XSSFCellStyle style) {
+        style.setBorderTop(BorderStyle.THIN);
+        style.setBorderBottom(BorderStyle.THIN);
+        style.setBorderLeft(BorderStyle.THIN);
+        style.setBorderRight(BorderStyle.THIN);
+    }
+
     // ── HTML fragment builder ──────────────────────────────────────────────────
 
     private String buildHtmlFragment(List<ForecastRow> rows, List<String> months, String team,
@@ -360,11 +559,11 @@ public class TeamForecastService {
     // ── Slack inline table ─────────────────────────────────────────────────────
 
     /**
-     * Builds a plain-text mrkdwn table suitable for inline inclusion in a Slack message.
+     * Builds a plain-text table suitable for uploading to Slack as a file snippet.
      *
-     * <p>The table is wrapped in a triple-backtick code fence so Slack renders it in
-     * monospace.  Output is capped at 2900 characters (safely under Slack's 3000-char
-     * block text limit); if the full table exceeds that, it is truncated with a note.
+     * <p>The table is wrapped in a triple-backtick code fence so it renders in monospace
+     * when previewed inline.  There is no character limit here — the full table is always
+     * returned and uploaded via the Slack Files API v2, which has no block-text restrictions.
      */
     private String buildSlackTableText(List<ForecastRow> rows, List<String> months, String team,
                                        LocalDate startDate, LocalDate endDate) {
@@ -400,12 +599,8 @@ public class TeamForecastService {
              .append(hdrSb).append("\n")
              .append(sepSb).append("\n");
 
-        final int MAX_CHARS = 2900;
-        int totalRows = rows.size();
         double grandTotal = 0.0;
-
-        for (int i = 0; i < totalRows; i++) {
-            ForecastRow row = rows.get(i);
+        for (ForecastRow row : rows) {
             StringBuilder line = new StringBuilder(pad(truncate(row.getEmployeeName(), W_EMP - 1), W_EMP)).append("|");
             for (String month : months) {
                 double v = row.getMonthVacations().getOrDefault(month, 0.0);
@@ -413,13 +608,6 @@ public class TeamForecastService {
             }
             line.append(padL(fmt(row.getTotalVacations()), W_VAC));
             grandTotal += row.getTotalVacations();
-
-            if (table.length() + line.length() + 60 > MAX_CHARS) {
-                table.append("... (").append(totalRows - i).append(" more rows — ")
-                     .append(totalRows).append(" total)");
-                table.append("\n```");
-                return table.toString();
-            }
             table.append(line).append("\n");
         }
 

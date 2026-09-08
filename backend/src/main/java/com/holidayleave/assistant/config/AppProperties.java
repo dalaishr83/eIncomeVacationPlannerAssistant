@@ -100,6 +100,27 @@ public class AppProperties {
          */
         private String alertWebhookUrl = "";
 
+        /**
+         * Slack Bot User OAuth Token (xoxb-...) used to upload forecast tables via
+         * the Files API v2.  Required together with {@link #channelId}.
+         * When empty, file upload is skipped and only the webhook summary fires.
+         */
+        private String botToken = "";
+
+        /**
+         * Slack channel ID (C0...) that receives the uploaded forecast file.
+         * Required together with {@link #botToken}.
+         */
+        private String channelId = "";
+
+        /**
+         * Controls the format used to deliver the Team Forecast report via Slack.
+         * When set to {@code "excel"} the report is generated as an Excel file
+         * attachment.  Any other value (including empty) uses the existing
+         * plain-text / rich-text table format.
+         */
+        private String reportFormat = "";
+
         public boolean isEnabled() { return enabled; }
         public void setEnabled(boolean enabled) { this.enabled = enabled; }
         public String getWebhookUrl() { return webhookUrl; }
@@ -108,6 +129,12 @@ public class AppProperties {
         public void setPcLeaveCode(String pcLeaveCode) { this.pcLeaveCode = pcLeaveCode; }
         public String getAlertWebhookUrl() { return alertWebhookUrl; }
         public void setAlertWebhookUrl(String alertWebhookUrl) { this.alertWebhookUrl = alertWebhookUrl; }
+        public String getBotToken() { return botToken; }
+        public void setBotToken(String botToken) { this.botToken = botToken; }
+        public String getChannelId() { return channelId; }
+        public void setChannelId(String channelId) { this.channelId = channelId; }
+        public String getReportFormat() { return reportFormat; }
+        public void setReportFormat(String reportFormat) { this.reportFormat = reportFormat; }
     }
 
     public static class Box {

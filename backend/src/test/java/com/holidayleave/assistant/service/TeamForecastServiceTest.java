@@ -471,6 +471,37 @@ class TeamForecastServiceTest {
         }
 
         @Test
+        @DisplayName("slackTableText contains all employees — no truncation for large teams")
+        void slackTableText_containsAllRows_noTruncation(
+                @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {
+            when(appState.getDataDir()).thenReturn(tempDir.toString());
+            java.nio.file.Files.createFile(tempDir.resolve("eIndkomst vacation 2026.xlsx"));
+
+            // Build a list of 33 employees (matches the reported real-world case)
+            List<LeaveRecord> records = new ArrayList<>();
+            for (int i = 1; i <= 33; i++) {
+                records.add(rec("Employee " + String.format("%02d", i),
+                        "2026-09-07", "2026-09-09", 3, "V"));
+            }
+            when(reader.load(anyString())).thenReturn(records);
+            when(holidaySettingsService.readMapping(anyString())).thenReturn(mappingFor());
+
+            TeamForecastService.TeamForecastResult result =
+                    service.generateForecast("EIndkomst Team",
+                            LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31));
+
+            String tableText = result.getSlackTableText();
+
+            // All 33 employees must appear — no "more rows" truncation marker
+            assertThat(tableText).doesNotContain("more rows");
+            for (int i = 1; i <= 33; i++) {
+                assertThat(tableText).contains("Employee " + String.format("%02d", i));
+            }
+            // Total row must be present
+            assertThat(tableText).contains("Total:");
+        }
+
+        @Test
         @DisplayName("Grand total row is present and equals sum of all employee vacation totals")
         void grandTotalRow_isPresentAndCorrect(
                 @org.junit.jupiter.api.io.TempDir Path tempDir) throws IOException {

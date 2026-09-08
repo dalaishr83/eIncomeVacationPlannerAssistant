@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <th:block th:replace="~{admin/layout :: base-head}"></th:block>
+    <link rel="stylesheet" th:href="@{/static/schedule_cron.css}">
+    <title>Schedule Cron — Vacation Planner Assistant</title>
+</head>
+<body>
+
+<th:block th:replace="~{admin/layout :: mobile-chrome}"></th:block>
+<th:block th:replace="~{admin/layout :: sidebar}"></th:block>
+
+<main class="main">
+    <th:block th:replace="~{admin/layout :: topbar}"></th:block>
+
+    <div class="sc-page">
+        <h1>Schedule Cron</h1>
+        <!-- ── Add Expression Card ──────────────────────────────────────────── -->
+        <div class="sc-card" id="scAddCard">
+            <div class="sc-card-title" id="scAddCardTitle">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                Add Cron Expression
+            </div>
+            <div class="sc-card-body">
+                <!-- Team selection -->
+                <div class="sc-section-label">Team</div>
+                <div class="sc-radio-group">
+                    <label class="sc-radio-card" id="scCardIndian">
+                        <input type="radio" name="scTeam" value="Indian Team">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                        <span>Indian Team</span>
+                    </label>
+                    <label class="sc-radio-card" id="scCardEIndkomst">
+                        <input type="radio" name="scTeam" value="EIndkomst Team">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
+                        <span>EIndkomst Team</span>
+                    </label>
+                </div>
+
+                <!-- Expression input -->
+                <div class="sc-input-row">
+                    <div class="sc-input-wrap">
+                        <label class="sc-label" for="scExprInput">Cron Expression(s)</label>
+                        <input class="sc-input" type="text" id="scExprInput"
+                               placeholder="e.g. 30 8 * * 5, 30 8 27-31 * 1-5, 30 8 28 * *"
+                               autocomplete="off" spellcheck="false">
+                    </div>
+                    <button class="sc-btn sc-btn-primary" id="scAddBtn" type="button">
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                        Add
+                    </button>
+                </div>
+                <p class="sc-msg" id="scAddMsg"></p>
+            </div><!-- /.sc-card-body -->
+        </div>
+
+        <!-- ── Scheduler Controls Card ──────────────────────────────────────── -->
+        <div class="sc-card" id="scCtrlCard">
+            <div class="sc-card-title" id="scCtrlCardTitle">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                Scheduler Controls
+            </div>
+            <div class="sc-card-body">
+                <div class="sc-controls">
+                    <button class="sc-btn sc-btn-success" id="scStartBtn" type="button">
+                        <!-- Play icon -->
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><polygon points="5,3 19,12 5,21"/></svg>
+                        Start
+                    </button>
+                    <button class="sc-btn sc-btn-danger" id="scStopBtn" type="button">
+                        <!-- Stop icon -->
+                        <svg width="13" height="13" viewBox="0 0 24 24" fill="currentColor" stroke="none"><rect x="4" y="4" width="16" height="16" rx="2"/></svg>
+                        Stop
+                    </button>
+                    <span class="sc-status-badge stopped" id="scStatusBadge">
+                        <span class="sc-status-dot"></span>
+                        <span id="scStatusText">Stopped</span>
+                    </span>
+                    <span class="sc-last-fired" id="scLastFired"></span>
+                </div>
+                <p class="sc-msg" id="scCtrlMsg" style="margin-top:8px;"></p>
+            </div><!-- /.sc-card-body -->
+        </div>
+
+        <!-- ── Expressions Table ────────────────────────────────────────────── -->
+        <div class="sc-table-card">
+            <div class="sc-table-header">
+                <div class="sc-table-header-title">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+                    Configured Expressions
+                    <span id="scExprCount" style="font-size:0.78rem;font-weight:400;color:var(--text-muted,#57606a);">(loading…)</span>
+                </div>
+            </div>
+            <div class="sc-table-scroll">
+                <table class="sc-table">
+                    <thead>
+                        <tr>
+                            <th style="width:36px;"><input type="checkbox" class="sc-cb" id="scSelectAll" title="Select all"></th>
+                            <th>Expression</th>
+                            <th>Team</th>
+                            <th>Added</th>
+                            <th style="width:52px;text-align:center;">Delete</th>
+                        </tr>
+                    </thead>
+                    <tbody id="scTableBody">
+                        <tr class="sc-empty-row"><td colspan="5">Loading…</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div><!-- /.sc-page -->
+</main>
+
+<script th:src="@{/static/schedule_cron.js}"></script>
+
+</body>
+</html>

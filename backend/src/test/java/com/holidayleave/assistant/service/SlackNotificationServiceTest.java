@@ -15,6 +15,8 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
 import java.time.LocalDate;
+import java.util.Collections;
+import java.util.List;
 
 import static org.mockito.Mockito.*;
 
@@ -38,8 +40,9 @@ import static org.mockito.Mockito.*;
 @MockitoSettings(strictness = Strictness.LENIENT)
 class SlackNotificationServiceTest {
 
-    @Mock private AppProperties props;
-    @Mock private AuditService auditService;
+    @Mock private AppProperties      props;
+    @Mock private AuditService       auditService;
+    @Mock private TeamForecastService teamForecastService;
 
     @InjectMocks
     private SlackNotificationService service;
@@ -292,6 +295,138 @@ class SlackNotificationServiceTest {
             service.notifyMissingYearData(missingStatus, "delete", "Bob Johnson",
                     LocalDate.of(2026, 12, 10), LocalDate.of(2027, 1, 15), "admin");
             // No exception.
+        }
+    }
+
+    // ── notifyTeamForecast ────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("notifyTeamForecast")
+    class NotifyTeamForecastTests {
+
+        @Test
+        @DisplayName("no-op when no webhook and no bot token configured")
+        void noWebhook_noToken_isNoOp() {
+            slackConfig.setEnabled(false);
+            slackConfig.setWebhookUrl("");
+            slackConfig.setAlertWebhookUrl("");
+            slackConfig.setBotToken("");
+            slackConfig.setChannelId("");
+            service.notifyTeamForecast("EIndkomst Team",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                    33, "summary", "admin", "table",
+                    Collections.emptyList(), Collections.emptyList());
+            verifyNoInteractions(auditService);
+        }
+
+        @Test
+        @DisplayName("fires when alert webhook URL is configured (independent of SLACK_ENABLED)")
+        void alertWebhook_fires_regardlessOfEnabled() {
+            slackConfig.setEnabled(false);
+            slackConfig.setWebhookUrl("");
+            slackConfig.setAlertWebhookUrl("https://hooks.slack.com/alerts");
+            slackConfig.setBotToken("");
+            slackConfig.setChannelId("");
+            long start = System.currentTimeMillis();
+            service.notifyTeamForecast("EIndkomst Team",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                    33, "summary", "admin", "table",
+                    Collections.emptyList(), Collections.emptyList());
+            long elapsed = System.currentTimeMillis() - start;
+            // Fire-and-forget — should return immediately
+            org.assertj.core.api.Assertions.assertThat(elapsed).isLessThan(1000L);
+        }
+
+        @Test
+        @DisplayName("null slackTableText is accepted without NPE")
+        void nullTableText_noNpe() {
+            slackConfig.setEnabled(false);
+            service.notifyTeamForecast("EIndkomst Team",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                    0, "summary", "admin", null,
+                    Collections.emptyList(), Collections.emptyList());
+            // No exception == pass
+        }
+
+        @Test
+        @DisplayName("excel format: no-op when no bot token/channel configured")
+        void excelFormat_noToken_isNoOp() {
+            slackConfig.setEnabled(false);
+            slackConfig.setWebhookUrl("");
+            slackConfig.setAlertWebhookUrl("");
+            slackConfig.setBotToken("");
+            slackConfig.setChannelId("");
+            slackConfig.setReportFormat("excel");
+            service.notifyTeamForecast("EIndkomst Team",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                    0, "summary", "admin", null,
+                    Collections.emptyList(), Collections.emptyList());
+            verifyNoInteractions(auditService);
+        }
+
+        @Test
+        @DisplayName("excel format: returns immediately without NPE when rows are empty")
+        void excelFormat_emptyRows_returnsImmediately() {
+            slackConfig.setEnabled(false);
+            slackConfig.setAlertWebhookUrl("https://hooks.slack.com/alerts");
+            slackConfig.setBotToken("");
+            slackConfig.setChannelId("");
+            slackConfig.setReportFormat("excel");
+            long start = System.currentTimeMillis();
+            service.notifyTeamForecast("EIndkomst Team",
+                    LocalDate.of(2026, 9, 1), LocalDate.of(2026, 12, 31),
+                    0, "summary", "admin", null,
+                    Collections.emptyList(), Collections.emptyList());
+            long elapsed = System.currentTimeMillis() - start;
+            org.assertj.core.api.Assertions.assertThat(elapsed).isLessThan(1000L);
+        }
+    }
+
+    // ── extractJsonString ─────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("extractJsonString")
+    class ExtractJsonStringTests {
+
+        @Test
+        @DisplayName("extracts a present key's value")
+        void extractsValue() {
+            String json = "{\"ok\":true,\"upload_url\":\"https://files.slack.com/upload/v1/abc\",\"file_id\":\"F123\"}";
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString(json, "upload_url"))
+                    .isEqualTo("https://files.slack.com/upload/v1/abc");
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString(json, "file_id"))
+                    .isEqualTo("F123");
+        }
+
+        @Test
+        @DisplayName("unescapes \\/ in URL values (Slack escapes forward slashes in JSON)")
+        void unescapesSlackUrl() {
+            // Slack returns: "upload_url":"https:\/\/files.slack.com\/upload\/v1\/abc123"
+            String json = "{\"ok\":true,\"upload_url\":\"https:\\/\\/files.slack.com\\/upload\\/v1\\/abc123\",\"file_id\":\"Fabc\"}";
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString(json, "upload_url"))
+                    .isEqualTo("https://files.slack.com/upload/v1/abc123");
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString(json, "file_id"))
+                    .isEqualTo("Fabc");
+        }
+
+        @Test
+        @DisplayName("returns null for a missing key")
+        void returnsNullForMissingKey() {
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString("{\"ok\":true}", "file_id"))
+                    .isNull();
+        }
+
+        @Test
+        @DisplayName("returns null for null input")
+        void returnsNullForNullInput() {
+            org.assertj.core.api.Assertions.assertThat(
+                    SlackNotificationService.extractJsonString(null, "key"))
+                    .isNull();
         }
     }
 }

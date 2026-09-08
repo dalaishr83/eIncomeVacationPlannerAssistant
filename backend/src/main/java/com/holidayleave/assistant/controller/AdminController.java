@@ -98,6 +98,14 @@ public class AdminController {
         return "admin/audit-log";
     }
 
+    @GetMapping("/admin/schedule-cron")
+    public String scheduleCronPage(Model model) {
+        model.addAttribute("currentPage", "schedule-cron");
+        model.addAttribute("topbarSubtitle", "Admin — Schedule Cron");
+        addActiveFilename(model);
+        return "admin/schedule-cron";
+    }
+
     // ── Audit log API ─────────────────────────────────────────────────────────
 
     /** GET /api/admin/audit-log — returns all audit entries, most recent first */
@@ -961,7 +969,8 @@ public class AdminController {
                     try {
                         slackNotificationService.notifyTeamForecast(
                                 finalTeam, finalStart, finalEnd, fr.getRowCount(),
-                                fr.getSummaryText(), finalUser, fr.getSlackTableText());
+                                fr.getSummaryText(), finalUser, fr.getSlackTableText(),
+                                fr.getRows(), fr.getMonths());
                     } catch (Exception ex) {
                         log.warn("Team forecast Slack notification failed (non-critical): {}", ex.getMessage());
                     }
