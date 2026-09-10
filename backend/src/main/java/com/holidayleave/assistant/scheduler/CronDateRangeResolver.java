@@ -10,14 +10,12 @@ import java.time.temporal.TemporalAdjusters;
  *
  * <h3>Classification rules (applied in order):</h3>
  * <ol>
- *   <li><b>Weekly</b> — DOW field is a specific weekday or simple weekday value/name
- *       (e.g. {@code 5}, {@code 1-5}, {@code MON-FRI}) <em>and</em> DOM is {@code *}.
- *       Range: Monday of the ISO week containing {@code fireDate} → {@code fireDate}.</li>
- *   <li><b>End-of-month range</b> — DOM field is a numeric range ending at 27–31
- *       (e.g. {@code 27-31}, {@code 28-31}).
- *       Range: 1st of the month → {@code fireDate}.</li>
- *   <li><b>Specific DOM</b> — DOM field is a fixed numeric day (e.g. {@code 28}).
- *       Range: 1st of the month → {@code fireDate}.</li>
+ *   <li><b>Weekly</b> — DOW field is restricted and DOM is {@code *}.
+ *       Range: Monday through Friday of the next ISO week.</li>
+ *   <li><b>Last day of month</b> — DOM is {@code L} and the month field is not a quarter list.
+ *       Range: first through last day of the next month.</li>
+ *   <li><b>Last day of quarter</b> — DOM is {@code L} and the month field lists 3, 6, 9, and 12.
+ *       Range: first through last day of the next quarter.</li>
  *   <li><b>Fallback</b> — all other expressions.
  *       Range: 1st of the month → {@code fireDate}.</li>
  * </ol>
@@ -75,7 +73,7 @@ public final class CronDateRangeResolver {
 
     /**
      * Resolves the report date range for the given 5-field cron expression and fire date,
-     * applying ISO week/year rules to determine the start date, and adjusting the end date backwards
+     * applying ISO week/year, month, or quarter rules to determine the date range, and adjusting the end date backwards
      * if it lands on a weekend (Saturday/Sunday) or public holiday contained in {@code publicHolidays}.
      *
      * <p>The start date is never changed. Only the end date is moved backwards to the nearest working day.</p>
@@ -88,34 +86,41 @@ public final class CronDateRangeResolver {
     public static DateRange resolve(String fiveFieldExpression, LocalDate fireDate, java.util.Set<java.util.Date> publicHolidays) {
         String[] fields = splitFields(fiveFieldExpression);
         LocalDate startDate;
-        LocalDate originalEndDate = fireDate;
+        LocalDate originalEndDate;
 
         if (fields == null) {
             // Unparseable — fall back to month range
             startDate = getIsoFirstDayOfMonth(fireDate);
+            originalEndDate = fireDate;
         } else {
             // fields[0]=min, fields[1]=hour, fields[2]=DOM, fields[3]=month, fields[4]=DOW
             String dom = fields[2].trim();
+            String month = fields[3].trim();
             String dow = fields[4].trim();
 
-            // ── Rule 1: Weekly ────────────────────────────────────────────────────
-            // DOM is wildcard (*) and DOW restricts to specific weekdays
+            // ── Rule 1: Weekly — Monday through Friday of the next ISO week ────────
             if ("*".equals(dom) && !isWildcard(dow)) {
-                startDate = resolveIsoMonday(fireDate);
+                LocalDate nextMonday = resolveIsoMonday(fireDate).plusWeeks(1);
+                startDate = nextMonday;
+                originalEndDate = nextMonday.plusDays(4);
             }
-            // ── Rule 2: End-of-month range ────────────────────────────────────────
-            // DOM is a range like 27-31, 28-31, etc.
-            else if (isEndOfMonthRange(dom)) {
-                startDate = getIsoFirstDayOfMonth(fireDate);
+            // ── Rule 2: Last day of the next month ─────────────────────────────────
+            else if ("L".equalsIgnoreCase(dom) && !isQuarterMonth(month)) {
+                LocalDate firstOfNextMonth = fireDate.withDayOfMonth(1).plusMonths(1);
+                startDate = firstOfNextMonth;
+                originalEndDate = firstOfNextMonth.with(TemporalAdjusters.lastDayOfMonth());
             }
-            // ── Rule 3: Specific DOM ──────────────────────────────────────────────
-            // DOM is a plain integer
-            else if (isNumeric(dom)) {
-                startDate = getIsoFirstDayOfMonth(fireDate);
+            // ── Rule 3: Last day of the next quarter ────────────────────────────────
+            else if ("L".equalsIgnoreCase(dom) && isQuarterMonth(month)) {
+                int currentQuarter = (fireDate.getMonthValue() - 1) / 3;
+                LocalDate firstOfNextQuarter = LocalDate.of(fireDate.getYear(), currentQuarter * 3 + 1, 1).plusMonths(3);
+                startDate = firstOfNextQuarter;
+                originalEndDate = firstOfNextQuarter.plusMonths(2).with(TemporalAdjusters.lastDayOfMonth());
             }
-            // ── Rule 4: Fallback ──────────────────────────────────────────────────
+            // ── Existing month-based rules ─────────────────────────────────────────
             else {
                 startDate = getIsoFirstDayOfMonth(fireDate);
+                originalEndDate = fireDate;
             }
         }
 
@@ -249,7 +254,8 @@ public final class CronDateRangeResolver {
      */
     public static java.time.LocalDateTime calculateNextFireDateTime(String fiveFieldExpression, java.time.LocalDateTime afterDateTime) {
         if (fiveFieldExpression == null || afterDateTime == null) return null;
-        String sixField = "0 " + fiveFieldExpression.trim();
+        String[] fields = fiveFieldExpression.trim().split("\\s+");
+        String sixField = fields.length == 6 ? fiveFieldExpression.trim() : "0 " + fiveFieldExpression.trim();
         try {
             org.springframework.scheduling.support.CronExpression expr =
                     org.springframework.scheduling.support.CronExpression.parse(sixField);
@@ -315,7 +321,23 @@ public final class CronDateRangeResolver {
     static String[] splitFields(String expr) {
         if (expr == null) return null;
         String[] parts = expr.trim().split("\\s+");
-        return (parts.length == 5) ? parts : null;
+        if (parts.length == 5) return parts;
+        if (parts.length == 6) {
+            // Accept Quartz's six-field form: seconds, minute, hour, DOM, month, DOW.
+            return new String[] {parts[1], parts[2], parts[3], parts[4], parts[5]};
+        }
+        return null;
+    }
+
+    private static boolean isQuarterMonth(String field) {
+        if (field == null) return false;
+        for (String value : field.split(",")) {
+            if (!("3".equals(value.trim()) || "6".equals(value.trim())
+                    || "9".equals(value.trim()) || "12".equals(value.trim()))) {
+                return false;
+            }
+        }
+        return field.contains(",");
     }
 
     /** True if {@code field} is a pure wildcard ({@code *} or {@code ?}). */

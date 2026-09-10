@@ -23,50 +23,71 @@ import static org.mockito.Mockito.*;
 public class CronDateRangeResolverTest {
 
     @Test
-    @DisplayName("Weekly cron resolves Monday of the same ISO week and ISO week-year")
+    @DisplayName("Weekly cron resolves Monday through Friday of the next ISO week")
     void testResolveWeeklyIsoMonday() {
         // 2026-09-18 is Friday of ISO week 38 (2026)
         LocalDate friday = LocalDate.of(2026, 9, 18);
-        LocalDate expectedMonday = LocalDate.of(2026, 9, 14);
+        LocalDate expectedMonday = LocalDate.of(2026, 9, 21);
+        LocalDate expectedFriday = LocalDate.of(2026, 9, 25);
 
-        DateRange range = CronDateRangeResolver.resolve("30 8 * * 5", friday);
+        DateRange range = CronDateRangeResolver.resolve("30 11 * * 5", friday);
         assertEquals(expectedMonday, range.startDate);
-        assertEquals(friday, range.endDate);
+        assertEquals(expectedFriday, range.endDate);
         assertEquals(DayOfWeek.MONDAY, range.startDate.getDayOfWeek());
-        assertEquals(friday.get(WeekFields.ISO.weekOfWeekBasedYear()),
-                range.startDate.get(WeekFields.ISO.weekOfWeekBasedYear()));
-        assertEquals(friday.get(WeekFields.ISO.weekBasedYear()),
-                range.startDate.get(WeekFields.ISO.weekBasedYear()));
+        assertEquals(expectedFriday.get(WeekFields.ISO.weekOfWeekBasedYear()),
+                range.endDate.get(WeekFields.ISO.weekOfWeekBasedYear()));
+        assertEquals(expectedFriday.get(WeekFields.ISO.weekBasedYear()),
+                range.endDate.get(WeekFields.ISO.weekBasedYear()));
     }
 
     @Test
-    @DisplayName("ISO Week-year boundary handling (Jan 1, 2027)")
+    @DisplayName("ISO Week-year boundary handling")
     void testIsoWeekYearBoundary() {
-        // 2027-01-01 is Friday. ISO week 53 of week-based year 2026. Monday is 2026-12-28.
+        // 2027-01-01 is Friday. The next ISO week starts on 2027-01-04.
         LocalDate jan1 = LocalDate.of(2027, 1, 1);
-        LocalDate monday = CronDateRangeResolver.resolveIsoMonday(jan1);
+        DateRange range = CronDateRangeResolver.resolve("30 11 * * 5", jan1);
 
-        assertEquals(LocalDate.of(2026, 12, 28), monday);
-        assertEquals(DayOfWeek.MONDAY, monday.getDayOfWeek());
-        assertEquals(jan1.get(WeekFields.ISO.weekOfWeekBasedYear()),
-                monday.get(WeekFields.ISO.weekOfWeekBasedYear()));
+        assertEquals(LocalDate.of(2027, 1, 4), range.startDate);
+        assertEquals(LocalDate.of(2027, 1, 8), range.endDate);
+        assertEquals(DayOfWeek.MONDAY, range.startDate.getDayOfWeek());
     }
 
     @Test
-    @DisplayName("Month range rules preserve start of month regardless of end-date adjustments")
-    void testMonthlyRules() {
-        LocalDate fireDate = LocalDate.of(2026, 9, 28);
-        // Rule 2: End-of-month range (e.g. 28-31)
-        DateRange r1 = CronDateRangeResolver.resolve("0 9 28-31 * *", fireDate);
-        assertEquals(LocalDate.of(2026, 9, 1), r1.startDate);
+    @DisplayName("Last-day monthly cron resolves the next month")
+    void testLastDayOfMonth() {
+        DateRange range = CronDateRangeResolver.resolve("0 30 11 L * ?", LocalDate.of(2026, 9, 30));
 
-        // Rule 3: Specific DOM
-        DateRange r2 = CronDateRangeResolver.resolve("0 9 28 * *", fireDate);
-        assertEquals(LocalDate.of(2026, 9, 1), r2.startDate);
+        assertEquals(LocalDate.of(2026, 10, 1), range.startDate);
+        // Existing backward-working-day logic moves Saturday 31 October to Friday 30 October.
+        assertEquals(LocalDate.of(2026, 10, 30), range.endDate);
+    }
 
-        // Rule 4: Fallback
-        DateRange r3 = CronDateRangeResolver.resolve("0 9 * * *", fireDate);
-        assertEquals(LocalDate.of(2026, 9, 1), r3.startDate);
+    @Test
+    @DisplayName("Last-day monthly cron handles the year boundary")
+    void testLastDayOfMonthYearBoundary() {
+        DateRange range = CronDateRangeResolver.resolve("0 30 11 L * ?", LocalDate.of(2026, 12, 31));
+
+        assertEquals(LocalDate.of(2027, 1, 1), range.startDate);
+        // Existing backward-working-day logic moves Sunday 31 January to Friday 29 January.
+        assertEquals(LocalDate.of(2027, 1, 29), range.endDate);
+    }
+
+    @Test
+    @DisplayName("Last-day quarterly cron resolves the next quarter")
+    void testLastDayOfQuarter() {
+        DateRange range = CronDateRangeResolver.resolve("0 30 11 L 3,6,9,12 ?", LocalDate.of(2026, 9, 30));
+
+        assertEquals(LocalDate.of(2026, 10, 1), range.startDate);
+        assertEquals(LocalDate.of(2026, 12, 31), range.endDate);
+    }
+
+    @Test
+    @DisplayName("Last-day quarterly cron handles the year boundary")
+    void testLastDayOfQuarterYearBoundary() {
+        DateRange range = CronDateRangeResolver.resolve("0 30 11 L 3,6,9,12 ?", LocalDate.of(2026, 12, 31));
+
+        assertEquals(LocalDate.of(2027, 1, 1), range.startDate);
+        assertEquals(LocalDate.of(2027, 3, 31), range.endDate);
     }
 
     @Test
@@ -158,10 +179,10 @@ public class CronDateRangeResolverTest {
 
         // Weekly cron (5 = Friday)
         DateRange range = CronDateRangeResolver.resolve("30 8 * * 5", fireDate, holidays);
-        // Start date should be Monday 2026-09-28
-        assertEquals(LocalDate.of(2026, 9, 28), range.startDate);
-        // End date adjusted to Friday 2026-09-25
-        assertEquals(LocalDate.of(2026, 9, 25), range.endDate);
+        // Start date should be Monday of the next ISO week.
+        assertEquals(LocalDate.of(2026, 10, 5), range.startDate);
+        // The computed next Friday is not affected by the holiday on the fire date.
+        assertEquals(LocalDate.of(2026, 10, 9), range.endDate);
     }
 
     @Test
