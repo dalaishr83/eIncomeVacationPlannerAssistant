@@ -38,6 +38,11 @@ class AppPropertiesTest {
     }
 
     @Test
+    void defaults_cronValidationIntervalSeconds() {
+        assertEquals(3600L, new AppProperties().getCronValidationIntervalSeconds());
+    }
+
+    @Test
     void defaults_loginUsername() {
         assertEquals("admin", new AppProperties().getLoginUsername());
     }

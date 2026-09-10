@@ -32,8 +32,9 @@ public class CronExpressionStore {
 
     private static final Logger log = LoggerFactory.getLogger(CronExpressionStore.class);
 
-    static final String CRON_SUBDIR   = "cron-expression";
-    static final String CRON_FILENAME = "cron.json";
+    static final String CRON_SUBDIR         = "cron-expression";
+    static final String CRON_FILENAME       = "cron.json";
+    static final String WORKING_CRON_FILENAME = "working-cron.json";
 
     private static final DateTimeFormatter ISO_LOCAL = DateTimeFormatter.ISO_LOCAL_DATE_TIME;
 
@@ -117,6 +118,51 @@ public class CronExpressionStore {
         return cronDir().resolve(CRON_FILENAME);
     }
 
+    public Path workingCronFile() {
+        return cronDir().resolve(WORKING_CRON_FILENAME);
+    }
+
+    /**
+     * Reads all entries from {@code working-cron.json}.
+     * If {@code working-cron.json} does not exist, falls back to reading {@code cron.json}.
+     */
+    public synchronized List<CronEntry> readWorkingAll() {
+        Path file = workingCronFile();
+        if (!file.toFile().exists()) {
+            return readAll();
+        }
+        try {
+            Map<String, Object> root = jackson.readValue(file.toFile(),
+                    new TypeReference<Map<String, Object>>() {});
+            Object raw = root.get("expressions");
+            if (!(raw instanceof List)) return new ArrayList<>();
+            List<?> rawList = (List<?>) raw;
+            List<CronEntry> result = new ArrayList<>();
+            for (Object item : rawList) {
+                String json = jackson.writeValueAsString(item);
+                result.add(jackson.readValue(json, CronEntry.class));
+            }
+            return result;
+        } catch (IOException e) {
+            log.warn("CronExpressionStore: failed to read {}: {}", file, e.getMessage());
+            return readAll();
+        }
+    }
+
+    /**
+     * Saves entries to {@code working-cron.json} atomically.
+     */
+    public synchronized void saveWorkingAll(List<CronEntry> entries) throws IOException {
+        Path dir = cronDir();
+        Files.createDirectories(dir);
+        Map<String, Object> root = new LinkedHashMap<>();
+        root.put("expressions", entries);
+        Path tmp = dir.resolve(".working-cron-tmp-" + System.currentTimeMillis() + ".json");
+        jackson.writeValue(tmp.toFile(), root);
+        Files.move(tmp, workingCronFile(), StandardCopyOption.REPLACE_EXISTING, StandardCopyOption.ATOMIC_MOVE);
+        log.debug("CronExpressionStore: saved {} expression(s) to working-cron.json", entries.size());
+    }
+
     // ── Entry model ───────────────────────────────────────────────────────────
 
     /**
@@ -130,6 +176,7 @@ public class CronExpressionStore {
         private String  team;
         private String  createdAt;
         private boolean enabled = true;
+        private boolean endDateAjusted = false;
 
         public CronEntry() {}
 
@@ -139,6 +186,21 @@ public class CronExpressionStore {
             this.team       = team;
             this.createdAt  = LocalDateTime.now().format(ISO_LOCAL);
             this.enabled    = true;
+            this.endDateAjusted = false;
+        }
+
+        private String  originalExpression;
+
+        public CronEntry(CronEntry other) {
+            if (other != null) {
+                this.id = other.id;
+                this.expression = other.expression;
+                this.originalExpression = other.originalExpression != null ? other.originalExpression : other.expression;
+                this.team = other.team;
+                this.createdAt = other.createdAt;
+                this.enabled = other.enabled;
+                this.endDateAjusted = other.endDateAjusted;
+            }
         }
 
         public String  getId()          { return id; }
@@ -151,6 +213,10 @@ public class CronExpressionStore {
         public void    setCreatedAt(String c)   { this.createdAt = c; }
         public boolean isEnabled()              { return enabled; }
         public void    setEnabled(boolean en)   { this.enabled = en; }
+        public boolean isEndDateAjusted()       { return endDateAjusted; }
+        public void    setEndDateAjusted(boolean endDateAjusted) { this.endDateAjusted = endDateAjusted; }
+        public String  getOriginalExpression()  { return originalExpression != null ? originalExpression : expression; }
+        public void    setOriginalExpression(String orig) { this.originalExpression = orig; }
 
         private static String shortUuid() {
             return UUID.randomUUID().toString().replace("-", "").substring(0, 8);

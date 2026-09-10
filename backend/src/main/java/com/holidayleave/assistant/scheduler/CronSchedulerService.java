@@ -48,6 +48,9 @@ public class CronSchedulerService {
     @Autowired private TeamForecastService      teamForecastService;
     @Autowired private SlackNotificationService slackNotificationService;
     @Autowired private AuditService             auditService;
+    @Autowired private com.holidayleave.assistant.service.AppState appState;
+    @Autowired private com.holidayleave.assistant.excel.PlannerExcelReader plannerExcelReader;
+    @Autowired private com.holidayleave.assistant.config.AppProperties appProperties;
 
     /** ThreadPoolTaskScheduler shared across all active tasks. */
     private ThreadPoolTaskScheduler taskScheduler;
@@ -57,6 +60,9 @@ public class CronSchedulerService {
      * Only populated when the scheduler is running.
      */
     private final Map<String, ScheduledFuture<?>> activeFutures = new ConcurrentHashMap<>();
+
+    /** Live handle for the background hourly validation task. */
+    private ScheduledFuture<?> hourlyValidationFuture = null;
 
     private volatile boolean running  = false;
     private volatile String  lastFired = null;
@@ -95,22 +101,42 @@ public class CronSchedulerService {
         if (running) {
             throw new IllegalStateException("Scheduler is already running.");
         }
-        List<CronEntry> entries = store.readAll();
-        if (entries.isEmpty()) {
+        List<CronEntry> userEntries = store.readAll();
+        if (userEntries.isEmpty()) {
             throw new IllegalStateException("No cron expressions configured. Add at least one expression first.");
         }
 
         taskScheduler = buildTaskScheduler();
         taskScheduler.initialize();
 
-        int count = 0;
-        for (CronEntry entry : entries) {
-            if (entry.isEnabled()) {
-                scheduleEntry(entry);
-                count++;
+        // 1. Perform initial background validation and sync working-cron.json
+        validateAndSyncWorkingCron();
+
+        // 2. Schedule background validation task based on configured interval (in ms)
+        long intervalSeconds = appProperties != null && appProperties.getCronValidationIntervalSeconds() > 0
+                ? appProperties.getCronValidationIntervalSeconds()
+                : 3600L;
+        long intervalMillis = intervalSeconds * 1000L;
+        log.info("CronSchedulerService: background validation task configured to run every {}s ({}ms)", intervalSeconds, intervalMillis);
+
+        hourlyValidationFuture = taskScheduler.scheduleWithFixedDelay(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    log.info("CronSchedulerService: background validation running...");
+                    validateAndSyncWorkingCron();
+                    rescheduleFromWorkingStore();
+                } catch (Exception e) {
+                    log.error("CronSchedulerService: background validation error: {}", e.getMessage(), e);
+                }
             }
-        }
+        }, intervalMillis);
+
         running = true;
+
+        // 3. Register live cron jobs using working-cron.json as the source of truth
+        int count = rescheduleFromWorkingStore();
+
         log.info("CronSchedulerService started with {} expression(s)", count);
         auditService.log("cron_scheduler_started", "system", null,
                 "Scheduler started with " + count + " expression(s)", "success", "cron");
@@ -118,13 +144,17 @@ public class CronSchedulerService {
     }
 
     /**
-     * Stops the scheduler: cancels all futures and shuts down the thread pool.
+     * Stops the scheduler: cancels all futures, stops hourly validation, and shuts down the thread pool.
      *
      * @throws IllegalStateException if the scheduler is not running
      */
     public synchronized void stop() {
         if (!running) {
             throw new IllegalStateException("Scheduler is not running.");
+        }
+        if (hourlyValidationFuture != null) {
+            hourlyValidationFuture.cancel(false);
+            hourlyValidationFuture = null;
         }
         for (ScheduledFuture<?> future : activeFutures.values()) {
             future.cancel(false);
@@ -147,10 +177,11 @@ public class CronSchedulerService {
      * a new entry has been persisted.  If the scheduler is currently running,
      * registers the new entry as a live task immediately.
      */
-    public void onEntryAdded(CronEntry entry) {
-        if (running && entry.isEnabled()) {
-            scheduleEntry(entry);
-            log.debug("CronSchedulerService: live-added task for id={}", entry.getId());
+    public synchronized void onEntryAdded(CronEntry entry) {
+        if (running) {
+            validateAndSyncWorkingCron();
+            rescheduleFromWorkingStore();
+            log.debug("CronSchedulerService: live-updated after entry add for id={}", entry.getId());
         }
     }
 
@@ -158,12 +189,107 @@ public class CronSchedulerService {
      * Called by {@link com.holidayleave.assistant.controller.CronController} after
      * an entry has been deleted from the store.  Cancels the live task if present.
      */
-    public void onEntryDeleted(String id) {
+    public synchronized void onEntryDeleted(String id) {
         ScheduledFuture<?> future = activeFutures.remove(id);
         if (future != null) {
             future.cancel(false);
             log.debug("CronSchedulerService: cancelled task for id={}", id);
         }
+        if (running) {
+            validateAndSyncWorkingCron();
+            rescheduleFromWorkingStore();
+        }
+    }
+
+    /**
+     * Validates cron expressions from {@code cron.json} against public holidays and weekends.
+     * Generates or updates {@code working-cron.json}. If an expression's target fire date
+     * falls on a weekend or public holiday, prepones it to the nearest earlier working day
+     * and sets {@code endDateAjusted = true}. If {@code endDateAjusted} is already true,
+     * avoids re-adjusting.
+     */
+    public synchronized void validateAndSyncWorkingCron() {
+        if (store == null) return;
+        List<CronEntry> originalList = store.readAll();
+        if (originalList.isEmpty()) {
+            try {
+                store.saveWorkingAll(new ArrayList<>());
+            } catch (IOException ignored) {}
+            return;
+        }
+
+        List<CronEntry> existingWorkingList = store.readWorkingAll();
+        Map<String, CronEntry> existingWorkingMap = new HashMap<>();
+        for (CronEntry we : existingWorkingList) {
+            if (we.getId() != null) {
+                existingWorkingMap.put(we.getId(), we);
+            }
+        }
+
+        Set<Date> publicHolidays = Collections.emptySet();
+        if (appState != null && plannerExcelReader != null) {
+            publicHolidays = CronDateRangeResolver.loadPublicHolidays(appState.getDataDir(), plannerExcelReader);
+        }
+
+        LocalDateTime now = LocalDateTime.now();
+        List<CronEntry> updatedWorkingList = new ArrayList<>();
+
+        for (CronEntry orig : originalList) {
+            CronEntry workingEntry = new CronEntry(orig);
+            workingEntry.setOriginalExpression(orig.getExpression());
+            CronEntry previousWorking = existingWorkingMap.get(orig.getId());
+
+            // Check if already adjusted in working configuration
+            if (previousWorking != null && previousWorking.isEndDateAjusted()) {
+                workingEntry.setExpression(previousWorking.getExpression());
+                workingEntry.setEndDateAjusted(true);
+                workingEntry.setOriginalExpression(previousWorking.getOriginalExpression());
+            } else {
+                String adjustedExpr = CronDateRangeResolver.preponeCronExpressionIfNeeded(
+                        orig.getExpression(), now, publicHolidays);
+                if (adjustedExpr != null && !adjustedExpr.equals(orig.getExpression())) {
+                    workingEntry.setExpression(adjustedExpr);
+                    workingEntry.setEndDateAjusted(true);
+                    log.info("CronSchedulerService: preponed cron for id={} team='{}' from '{}' to '{}'",
+                            orig.getId(), orig.getTeam(), orig.getExpression(), adjustedExpr);
+                    auditService.log("cron_fire_date_preponed", "system", null,
+                            "Cron expression for team '" + orig.getTeam() + "' adjusted from '" +
+                            orig.getExpression() + "' to '" + adjustedExpr + "' (preponed to earlier working day)",
+                            "success", "cron");
+                } else {
+                    workingEntry.setEndDateAjusted(false);
+                }
+            }
+            updatedWorkingList.add(workingEntry);
+        }
+
+        try {
+            store.saveWorkingAll(updatedWorkingList);
+        } catch (IOException e) {
+            log.error("CronSchedulerService: failed to write working-cron.json: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Reads all enabled entries from {@code working-cron.json} and registers tasks.
+     */
+    private int rescheduleFromWorkingStore() {
+        if (!running || taskScheduler == null) return 0;
+
+        for (ScheduledFuture<?> f : activeFutures.values()) {
+            f.cancel(false);
+        }
+        activeFutures.clear();
+
+        List<CronEntry> workingEntries = store.readWorkingAll();
+        int count = 0;
+        for (CronEntry entry : workingEntries) {
+            if (entry.isEnabled()) {
+                scheduleEntry(entry);
+                count++;
+            }
+        }
+        return count;
     }
 
     // ── Lifecycle ─────────────────────────────────────────────────────────────
@@ -185,14 +311,22 @@ public class CronSchedulerService {
     private void scheduleEntry(final CronEntry entry) {
         String springCron = "0 " + entry.getExpression();
         TaskScheduler ts  = taskScheduler; // capture reference (lambda safety)
-        ScheduledFuture<?> future = ts.schedule(
-                new Runnable() {
-                    @Override public void run() {
-                        executeForecast(entry);
-                    }
-                },
-                new CronTrigger(springCron));
-        activeFutures.put(entry.getId(), future);
+        try {
+            CronTrigger trigger = new CronTrigger(springCron);
+            ScheduledFuture<?> future = ts.schedule(
+                    new Runnable() {
+                        @Override public void run() {
+                            executeForecast(entry);
+                        }
+                    },
+                    trigger);
+            activeFutures.put(entry.getId(), future);
+            log.info("CronSchedulerService: registered live trigger for id={} expr='{}' (spring='{}')",
+                    entry.getId(), entry.getExpression(), springCron);
+        } catch (Exception e) {
+            log.error("CronSchedulerService: failed to schedule id={} expr='{}': {}",
+                    entry.getId(), entry.getExpression(), e.getMessage(), e);
+        }
     }
 
     /**
@@ -205,8 +339,28 @@ public class CronSchedulerService {
                 entry.getId(), entry.getTeam(), entry.getExpression(), fireDate);
         lastFired = LocalDateTime.now().format(ISO_FMT);
 
-        // 1. Resolve start/end dates from the cron expression + fire date
-        DateRange range = CronDateRangeResolver.resolve(entry.getExpression(), fireDate);
+        // 1. Load public holidays and resolve start/end dates from the cron expression + fire date
+        Set<Date> publicHolidays = Collections.emptySet();
+        if (appState != null && plannerExcelReader != null) {
+            publicHolidays = CronDateRangeResolver.loadPublicHolidays(appState.getDataDir(), plannerExcelReader);
+        }
+
+        String exprForRange = entry.getOriginalExpression() != null ? entry.getOriginalExpression() : entry.getExpression();
+        DateRange range = CronDateRangeResolver.resolve(exprForRange, fireDate, publicHolidays);
+
+        log.info("CronSchedulerService: forecast report date range resolved for team='{}' (fireDate={}, cronStartDate={}, cronEndDate={}, originalExpr='{}', workingExpr='{}')",
+                entry.getTeam(), fireDate, range.startDate, range.endDate, entry.getOriginalExpression(), entry.getExpression());
+
+        // Log and audit if end date was adjusted
+        if (!fireDate.equals(range.endDate)) {
+            String reason = CronDateRangeResolver.isWeekend(fireDate) ? "weekend" : "public holiday";
+            log.info("Cron end date {} falls on a {} and has been adjusted to nearest previous working day: {}",
+                    fireDate, reason, range.endDate);
+            auditService.log("cron_end_date_adjusted", "system", null,
+                    "Cron end date " + fireDate + " falls on a " + reason +
+                    ". Cron end date has been adjusted to the nearest previous working day: " + range.endDate,
+                    "success", "cron");
+        }
 
         // 2. Generate the forecast (same call as AdminController.generateTeamForecast)
         TeamForecastResult result;

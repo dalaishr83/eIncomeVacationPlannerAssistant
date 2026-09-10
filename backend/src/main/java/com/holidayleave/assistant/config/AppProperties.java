@@ -15,6 +15,7 @@ public class AppProperties {
     private String reportOutputDir = "reports";
     private String excelFilePaths = "";
     private int syncIntervalSeconds = 300;
+    private long cronValidationIntervalSeconds = 3600;
     private String loginUsername = "admin";
     private String loginPasswordHash = "";
 
@@ -70,6 +71,8 @@ public class AppProperties {
     public void setExcelFilePaths(String excelFilePaths) { this.excelFilePaths = excelFilePaths; }
     public int getSyncIntervalSeconds() { return syncIntervalSeconds; }
     public void setSyncIntervalSeconds(int syncIntervalSeconds) { this.syncIntervalSeconds = syncIntervalSeconds; }
+    public long getCronValidationIntervalSeconds() { return cronValidationIntervalSeconds; }
+    public void setCronValidationIntervalSeconds(long cronValidationIntervalSeconds) { this.cronValidationIntervalSeconds = cronValidationIntervalSeconds; }
     public String getLoginUsername() { return loginUsername; }
     public void setLoginUsername(String loginUsername) { this.loginUsername = loginUsername; }
     public String getLoginPasswordHash() { return loginPasswordHash; }
