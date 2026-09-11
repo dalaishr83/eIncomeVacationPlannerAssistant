@@ -124,8 +124,16 @@ public class CronSchedulerService {
             public void run() {
                 try {
                     log.info("CronSchedulerService: background validation running...");
-                    validateAndSyncWorkingCron();
-                    rescheduleFromWorkingStore();
+                    // Only reschedule live tasks when the working store actually changed
+                    // (i.e. an expression was preponed due to a public holiday/weekend).
+                    // Without this guard, every validation cycle cancelled and re-registered
+                    // the CronTrigger futures, resetting their next-fire countdown and
+                    // preventing them from ever firing.
+                    boolean changed = validateAndSyncWorkingCron();
+                    if (changed) {
+                        log.info("CronSchedulerService: working-cron.json changed — rescheduling live tasks");
+                        rescheduleFromWorkingStore();
+                    }
                 } catch (Exception e) {
                     log.error("CronSchedulerService: background validation error: {}", e.getMessage(), e);
                 }
@@ -207,15 +215,18 @@ public class CronSchedulerService {
      * falls on a weekend or public holiday, prepones it to the nearest earlier working day
      * and sets {@code endDateAjusted = true}. If {@code endDateAjusted} is already true,
      * avoids re-adjusting.
+     *
+     * @return {@code true} if the working store was changed (expression preponed or entry
+     *         set changed), {@code false} if nothing changed and live tasks must not be reset.
      */
-    public synchronized void validateAndSyncWorkingCron() {
-        if (store == null) return;
+    public synchronized boolean validateAndSyncWorkingCron() {
+        if (store == null) return false;
         List<CronEntry> originalList = store.readAll();
         if (originalList.isEmpty()) {
             try {
                 store.saveWorkingAll(new ArrayList<>());
             } catch (IOException ignored) {}
-            return;
+            return false;
         }
 
         List<CronEntry> existingWorkingList = store.readWorkingAll();
@@ -233,6 +244,7 @@ public class CronSchedulerService {
 
         LocalDateTime now = LocalDateTime.now();
         List<CronEntry> updatedWorkingList = new ArrayList<>();
+        boolean anyAdjusted = false;
 
         for (CronEntry orig : originalList) {
             CronEntry workingEntry = new CronEntry(orig);
@@ -250,6 +262,7 @@ public class CronSchedulerService {
                 if (adjustedExpr != null && !adjustedExpr.equals(orig.getExpression())) {
                     workingEntry.setExpression(adjustedExpr);
                     workingEntry.setEndDateAjusted(true);
+                    anyAdjusted = true;
                     log.info("CronSchedulerService: preponed cron for id={} team='{}' from '{}' to '{}'",
                             orig.getId(), orig.getTeam(), orig.getExpression(), adjustedExpr);
                     auditService.log("cron_fire_date_preponed", "system", null,
@@ -263,11 +276,20 @@ public class CronSchedulerService {
             updatedWorkingList.add(workingEntry);
         }
 
+        // Also consider a change if the set of tracked IDs differs (entry added/removed)
+        Set<String> prevIds = existingWorkingMap.keySet();
+        Set<String> newIds  = new HashSet<>();
+        for (CronEntry e : updatedWorkingList) {
+            if (e.getId() != null) newIds.add(e.getId());
+        }
+        boolean idSetChanged = !prevIds.equals(newIds);
+
         try {
             store.saveWorkingAll(updatedWorkingList);
         } catch (IOException e) {
             log.error("CronSchedulerService: failed to write working-cron.json: {}", e.getMessage(), e);
         }
+        return anyAdjusted || idSetChanged;
     }
 
     /**

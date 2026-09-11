@@ -1,6 +1,5 @@
 package com.holidayleave.assistant.service;
 
-import com.holidayleave.assistant.config.AppProperties;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -36,7 +35,7 @@ import static org.mockito.Mockito.when;
 @ExtendWith(MockitoExtension.class)
 class RestrictedVacationTypeServiceTest {
 
-    @Mock private AppProperties props;
+    @Mock private AppState appState;
 
     @InjectMocks
     private RestrictedVacationTypeService service;
@@ -46,7 +45,7 @@ class RestrictedVacationTypeServiceTest {
 
     @BeforeEach
     void setUp() throws IOException {
-        when(props.getDataDir()).thenReturn(tempDir.toString());
+        when(appState.getDataDir()).thenReturn(tempDir.toString());
         service.init();
     }
 

@@ -49,12 +49,16 @@ public class CronSchedulerServiceTest {
         String dataDir = tempDir.toString();
         when(appState.getDataDir()).thenReturn(dataDir);
 
-        File f1 = tempDir.resolve("eIndkomst vacation 2026.xlsx").toFile();
+        File f1 = tempDir.resolve("eIndkomst vacation 2099.xlsx").toFile();
         assertTrue(f1.createNewFile());
 
-        // Friday 2026-09-11 is a Public Holiday
+        // Compute the next Friday from now to use as the public holiday date.
+        // This ensures the test is time-independent: the "next fire" of "30 11 * * 5"
+        // will always land on this Friday regardless of when the test runs.
+        java.time.LocalDate nextFriday = java.time.LocalDate.now()
+                .with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.FRIDAY));
         List<LeaveRecord> records = Collections.singletonList(
-                new LeaveRecord("Alice", LocalDate.of(2026, 9, 11), LocalDate.of(2026, 9, 11), 1, "P", null)
+                new LeaveRecord("Alice", nextFriday, nextFriday, 1, "P", null)
         );
         when(plannerExcelReader.load(f1.getAbsolutePath())).thenReturn(records);
 
@@ -63,7 +67,8 @@ public class CronSchedulerServiceTest {
         when(store.readAll()).thenReturn(Collections.singletonList(userEntry));
         when(store.readWorkingAll()).thenReturn(Collections.emptyList());
 
-        schedulerService.validateAndSyncWorkingCron();
+        boolean changed = schedulerService.validateAndSyncWorkingCron();
+        assertTrue(changed, "Expected validateAndSyncWorkingCron to return true when an expression is preponed");
 
         // Verify saveWorkingAll called
         verify(store, times(1)).saveWorkingAll(argThat(list -> {
@@ -86,7 +91,8 @@ public class CronSchedulerServiceTest {
         when(store.readAll()).thenReturn(Collections.singletonList(userEntry));
         when(store.readWorkingAll()).thenReturn(Collections.singletonList(workingEntry));
 
-        schedulerService.validateAndSyncWorkingCron();
+        boolean changed = schedulerService.validateAndSyncWorkingCron();
+        assertFalse(changed, "Expected validateAndSyncWorkingCron to return false when no change occurred");
 
         verify(store, times(1)).saveWorkingAll(argThat(list -> {
             if (list.size() != 1) return false;

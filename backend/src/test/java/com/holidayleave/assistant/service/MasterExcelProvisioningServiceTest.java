@@ -160,7 +160,7 @@ class MasterExcelProvisioningServiceTest {
         wb.getSheetAt(0).getRow(0).getCell(0).setCellValue("Holiday Planner YEAR");
         Path templateDir = tmp.resolve("template");
         Files.createDirectories(templateDir);
-        Path templateFile = templateDir.resolve("eIndkomst vacation-template.xlsx");
+        Path templateFile = templateDir.resolve("eIndkomst-vacation-template.xlsx");
         try (FileOutputStream fos = new FileOutputStream(templateFile.toFile())) {
             wb.write(fos);
         }
@@ -304,7 +304,7 @@ class MasterExcelProvisioningServiceTest {
 
         Path templateDir = tmp.resolve("template");
         Files.createDirectories(templateDir);
-        Path templateFile = templateDir.resolve("eIndkomst vacation-template.xlsx");
+        Path templateFile = templateDir.resolve("eIndkomst-vacation-template.xlsx");
         try (FileOutputStream fos = new FileOutputStream(templateFile.toFile())) {
             wb.write(fos);
         }
@@ -350,7 +350,7 @@ class MasterExcelProvisioningServiceTest {
         // Write template to disk
         Path templateDir = tmp.resolve("template");
         Files.createDirectories(templateDir);
-        Path templateFile = templateDir.resolve("eIndkomst vacation-template.xlsx");
+        Path templateFile = templateDir.resolve("eIndkomst-vacation-template.xlsx");
         try (FileOutputStream fos = new FileOutputStream(templateFile.toFile())) {
             wb.write(fos);
         }
@@ -575,7 +575,7 @@ class MasterExcelProvisioningServiceTest {
         // Write template to disk
         Path templateDir = tmp.resolve("template");
         Files.createDirectories(templateDir);
-        Path templateFile = templateDir.resolve("eIndkomst vacation-template.xlsx");
+        Path templateFile = templateDir.resolve("eIndkomst-vacation-template.xlsx");
         try (FileOutputStream fos = new FileOutputStream(templateFile.toFile())) {
             wb.write(fos);
         }

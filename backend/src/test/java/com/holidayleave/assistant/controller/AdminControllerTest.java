@@ -174,14 +174,19 @@ class AdminControllerTest {
     // =========================================================================
 
     @Test
-    void getEmployeeCredentials_returnsOnlyEmployeeRoleEntries() {
+    void getEmployeeCredentials_returnsOnlyEmployeeRoleEntries() throws IOException {
+        // The endpoint now sources its list from the active master Excel sheet,
+        // not by filtering secretService credentials by role.
+        // Stub appState to return a non-null path so the Excel branch is entered.
+        when(appState.resolveCurrentYearFilePath()).thenReturn("/tmp/data/planner.xlsx");
+        when(reader.getEmployeeNames("/tmp/data/planner.xlsx"))
+                .thenReturn(Collections.singletonList("Alice Smith"));
+
+        // secretService is still called to look up existing usernames by employee_name
         Map<String, Map<String, String>> all = new LinkedHashMap<>();
         Map<String, String> emp = new LinkedHashMap<>();
         emp.put("username", "aliceSmith"); emp.put("role", "employee"); emp.put("employee_name", "Alice Smith");
-        Map<String, String> adm = new LinkedHashMap<>();
-        adm.put("username", "admin"); adm.put("role", "admin"); adm.put("employee_name", null);
         all.put("aliceSmith", emp);
-        all.put("admin", adm);
         when(secretService.readCredentials()).thenReturn(all);
 
         ResponseEntity<Map<String, Object>> resp = controller.getEmployeeCredentials();

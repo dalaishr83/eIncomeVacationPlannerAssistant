@@ -16,7 +16,7 @@ import java.time.LocalDate;
  *
  * <p>Pipeline (all steps are transactional — on any failure the staging file is cleaned up):
  * <ol>
- *   <li>Verify the template exists at {@code /data/template/eIndkomst vacation-template.xlsx}.</li>
+ *   <li>Verify the template exists at {@code /data/template/eIndkomst-vacation-template.xlsx}.</li>
  *   <li>Verify the target file does not already exist in {@code /data}.</li>
  *   <li>Copy the template to {@code /data/staging/}.</li>
  *   <li>Open the staging copy with Apache POI and replace every string cell value that
