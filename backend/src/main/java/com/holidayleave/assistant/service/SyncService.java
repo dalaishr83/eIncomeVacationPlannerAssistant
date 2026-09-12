@@ -35,6 +35,7 @@ public class SyncService {
     @Autowired private PlannerExcelReader reader;
     @Autowired private BoxSyncService boxSyncService;
     @Autowired private AuditService auditService;
+    @Autowired private PublicHolidayCache publicHolidayCache;
 
     private Thread syncThread;
     private volatile boolean running = false;
@@ -86,18 +87,24 @@ public class SyncService {
     private void syncLoop() {
         int failCount = 0;
         while (running) {
+            boolean wasTriggered;
             synchronized (triggerLock) {
                 try {
                     if (!triggered) triggerLock.wait(5000);
-                    triggered = false;
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;
                 }
+                wasTriggered = triggered;
+                triggered = false;
             }
             if (!running) break;
             try {
                 syncAll();
+                if (wasTriggered) {
+                    log.info("SyncService: explicit sync triggered — refreshing PublicHolidayCache");
+                    publicHolidayCache.refresh();
+                }
                 failCount = 0;
             } catch (Exception e) {
                 log.error("Sync error: {}", e.getMessage());

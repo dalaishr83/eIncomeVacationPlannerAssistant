@@ -162,7 +162,22 @@ public final class CronDateRangeResolver {
      * @param reader  planner excel reader instance to parse master files
      * @return consolidated set of normalized java.util.Date objects representing public holidays
      */
-    public static java.util.Set<java.util.Date> loadPublicHolidays(String dataDir, com.holidayleave.assistant.excel.PlannerExcelReader reader) {
+    /** Delegates to the zone-aware overload using the JVM default zone. */
+    public static java.util.Set<java.util.Date> loadPublicHolidays(
+            String dataDir,
+            com.holidayleave.assistant.excel.PlannerExcelReader reader) {
+        return loadPublicHolidays(dataDir, reader, java.time.ZoneId.systemDefault());
+    }
+
+    /**
+     * Zone-aware variant: normalises holiday dates using the supplied {@code zone}
+     * so that membership tests against the returned set are consistent regardless
+     * of the JVM default time zone.
+     */
+    public static java.util.Set<java.util.Date> loadPublicHolidays(
+            String dataDir,
+            com.holidayleave.assistant.excel.PlannerExcelReader reader,
+            java.time.ZoneId zone) {
         java.util.Set<java.util.Date> holidays = new java.util.HashSet<>();
         if (dataDir == null || reader == null) {
             return holidays;
@@ -186,7 +201,7 @@ public final class CronDateRangeResolver {
                 for (com.holidayleave.assistant.model.LeaveRecord r : records) {
                     if (isPublicHolidayRecord(r)) {
                         for (LocalDate d = r.startDate(); !d.isAfter(r.endDate()); d = d.plusDays(1)) {
-                            holidays.add(normalizeToDate(d));
+                            holidays.add(normalizeToDate(d, zone));
                         }
                     }
                 }
@@ -237,11 +252,20 @@ public final class CronDateRangeResolver {
     /**
      * Checks if the given date is in the public holiday set.
      */
+    /** Delegates to the zone-aware overload using the JVM default zone. */
     public static boolean isPublicHoliday(LocalDate date, java.util.Set<java.util.Date> publicHolidays) {
+        return isPublicHoliday(date, publicHolidays, java.time.ZoneId.systemDefault());
+    }
+
+    /**
+     * Zone-aware variant: normalises {@code date} to midnight in {@code zone} before
+     * checking set membership, matching the zone used when the holiday set was built.
+     */
+    public static boolean isPublicHoliday(LocalDate date, java.util.Set<java.util.Date> publicHolidays, java.time.ZoneId zone) {
         if (date == null || publicHolidays == null || publicHolidays.isEmpty()) {
             return false;
         }
-        java.util.Date normalized = normalizeToDate(date);
+        java.util.Date normalized = normalizeToDate(date, zone);
         return publicHolidays.contains(normalized);
     }
 
@@ -307,9 +331,19 @@ public final class CronDateRangeResolver {
      * Normalizes a LocalDate to a java.util.Date representing midnight (00:00:00.000)
      * in the system default timezone to ensure consistent and reliable comparison.
      */
+    /** Delegates to the zone-aware overload using the JVM default zone. */
     public static java.util.Date normalizeToDate(LocalDate localDate) {
+        return normalizeToDate(localDate, java.time.ZoneId.systemDefault());
+    }
+
+    /**
+     * Converts a {@link LocalDate} to a {@link java.util.Date} anchored at midnight
+     * in the given {@code zone}.  Using a consistent zone ensures that holiday-set
+     * membership tests produce the correct result regardless of the JVM default zone.
+     */
+    public static java.util.Date normalizeToDate(LocalDate localDate, java.time.ZoneId zone) {
         if (localDate == null) return null;
-        return java.util.Date.from(localDate.atStartOfDay(java.time.ZoneId.systemDefault()).toInstant());
+        return java.util.Date.from(localDate.atStartOfDay(zone).toInstant());
     }
 
     // ── Private helpers ───────────────────────────────────────────────────────

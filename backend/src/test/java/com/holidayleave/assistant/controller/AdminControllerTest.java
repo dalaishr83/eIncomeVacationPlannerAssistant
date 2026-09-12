@@ -4,11 +4,13 @@ import com.holidayleave.assistant.config.AppProperties;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
 import com.holidayleave.assistant.model.AuditLogEntry;
+import com.holidayleave.assistant.model.FileInfo;
 import com.holidayleave.assistant.model.VacationType;
 import com.holidayleave.assistant.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.io.TempDir;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -21,6 +23,7 @@ import org.springframework.ui.ConcurrentModel;
 import org.springframework.ui.Model;
 
 import java.io.IOException;
+import java.nio.file.Path;
 import java.util.*;
 
 import static java.util.Optional.of;
@@ -364,5 +367,47 @@ class AdminControllerTest {
         ResponseEntity<Map<String, Object>> resp = controller.approvePc(body, session);
         assertEquals(HttpStatus.OK, resp.getStatusCode());
         assertEquals(0, resp.getBody().get("approved"));
+    }
+
+    // =========================================================================
+    // Master file viewer
+    // =========================================================================
+
+    @Test
+    void masterFileView_pathTraversalFilename_returnsErrorView() {
+        Model model = new ConcurrentModel();
+        String view = controller.masterFileViewPage("../../etc/passwd", model);
+        assertEquals("admin/excel-viewer", view);
+        assertNotNull(model.getAttribute("error"));
+    }
+
+    @Test
+    void masterFileView_backslashFilename_returnsErrorView() {
+        Model model = new ConcurrentModel();
+        String view = controller.masterFileViewPage("folder\\file.xlsx", model);
+        assertEquals("admin/excel-viewer", view);
+        assertNotNull(model.getAttribute("error"));
+    }
+
+    @Test
+    void masterFileView_unknownFilename_returnsErrorView() {
+        when(appState.getKnownFiles()).thenReturn(Collections.emptyList());
+        Model model = new ConcurrentModel();
+        String view = controller.masterFileViewPage("eIndkomst vacation 2025.xlsx", model);
+        assertEquals("admin/excel-viewer", view);
+        assertNotNull(model.getAttribute("error"));
+    }
+
+    @Test
+    void masterFileView_knownFileNotOnDisk_returnsErrorView(@TempDir Path tempDir) {
+        FileInfo fi = new FileInfo("eIndkomst vacation 2025.xlsx",
+                tempDir.resolve("eIndkomst vacation 2025.xlsx").toString(), true);
+        when(appState.getKnownFiles()).thenReturn(Collections.singletonList(fi));
+        when(appState.getDataDir()).thenReturn(tempDir.toString());
+        // file intentionally NOT created on disk
+        Model model = new ConcurrentModel();
+        String view = controller.masterFileViewPage("eIndkomst vacation 2025.xlsx", model);
+        assertEquals("admin/excel-viewer", view);
+        assertNotNull(model.getAttribute("error"));
     }
 }

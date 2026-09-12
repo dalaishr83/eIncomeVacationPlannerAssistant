@@ -18,6 +18,7 @@ import javax.annotation.PreDestroy;
 import java.io.IOException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
@@ -49,7 +50,7 @@ public class CronSchedulerService {
     @Autowired private SlackNotificationService slackNotificationService;
     @Autowired private AuditService             auditService;
     @Autowired private com.holidayleave.assistant.service.AppState appState;
-    @Autowired private com.holidayleave.assistant.excel.PlannerExcelReader plannerExcelReader;
+    @Autowired private com.holidayleave.assistant.service.PublicHolidayCache publicHolidayCache;
     @Autowired private com.holidayleave.assistant.config.AppProperties appProperties;
 
     /** ThreadPoolTaskScheduler shared across all active tasks. */
@@ -237,12 +238,12 @@ public class CronSchedulerService {
             }
         }
 
-        Set<Date> publicHolidays = Collections.emptySet();
-        if (appState != null && plannerExcelReader != null) {
-            publicHolidays = CronDateRangeResolver.loadPublicHolidays(appState.getDataDir(), plannerExcelReader);
-        }
+        Set<Date> publicHolidays = publicHolidayCache != null
+                ? publicHolidayCache.getHolidays()
+                : Collections.emptySet();
 
-        LocalDateTime now = LocalDateTime.now();
+        ZoneId cronZone = ZoneId.of(appProperties != null ? appProperties.getCronTimezone() : "Asia/Kolkata");
+        LocalDateTime now = LocalDateTime.now(cronZone);
         List<CronEntry> updatedWorkingList = new ArrayList<>();
         boolean anyAdjusted = false;
 
@@ -334,7 +335,9 @@ public class CronSchedulerService {
         String springCron = "0 " + entry.getExpression();
         TaskScheduler ts  = taskScheduler; // capture reference (lambda safety)
         try {
-            CronTrigger trigger = new CronTrigger(springCron);
+            java.util.TimeZone tz = java.util.TimeZone.getTimeZone(
+                    appProperties != null ? appProperties.getCronTimezone() : "Asia/Kolkata");
+            CronTrigger trigger = new CronTrigger(springCron, tz);
             ScheduledFuture<?> future = ts.schedule(
                     new Runnable() {
                         @Override public void run() {
@@ -356,16 +359,16 @@ public class CronSchedulerService {
      * and delivers it to Slack using the existing workflow.
      */
     private void executeForecast(CronEntry entry) {
-        LocalDate fireDate = LocalDate.now();
+        ZoneId cronZone = ZoneId.of(appProperties != null ? appProperties.getCronTimezone() : "Asia/Kolkata");
+        LocalDate fireDate = LocalDate.now(cronZone);
         log.info("CronSchedulerService: firing for id={} team='{}' expr='{}' date={}",
                 entry.getId(), entry.getTeam(), entry.getExpression(), fireDate);
-        lastFired = LocalDateTime.now().format(ISO_FMT);
+        lastFired = LocalDateTime.now(cronZone).format(ISO_FMT);
 
-        // 1. Load public holidays and resolve start/end dates from the cron expression + fire date
-        Set<Date> publicHolidays = Collections.emptySet();
-        if (appState != null && plannerExcelReader != null) {
-            publicHolidays = CronDateRangeResolver.loadPublicHolidays(appState.getDataDir(), plannerExcelReader);
-        }
+        // 1. Resolve start/end dates from the cron expression + fire date using the cached holiday set
+        Set<Date> publicHolidays = publicHolidayCache != null
+                ? publicHolidayCache.getHolidays()
+                : Collections.emptySet();
 
         String exprForRange = entry.getOriginalExpression() != null ? entry.getOriginalExpression() : entry.getExpression();
         DateRange range = CronDateRangeResolver.resolve(exprForRange, fireDate, publicHolidays);

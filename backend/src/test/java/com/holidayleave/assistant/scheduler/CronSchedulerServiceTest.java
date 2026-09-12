@@ -1,13 +1,11 @@
 package com.holidayleave.assistant.scheduler;
 
-import com.holidayleave.assistant.excel.PlannerExcelReader;
-import com.holidayleave.assistant.model.LeaveRecord;
 import com.holidayleave.assistant.scheduler.CronExpressionStore.CronEntry;
 import com.holidayleave.assistant.service.AppState;
 import com.holidayleave.assistant.service.AuditService;
+import com.holidayleave.assistant.service.PublicHolidayCache;
 import com.holidayleave.assistant.service.SlackNotificationService;
 import com.holidayleave.assistant.service.TeamForecastService;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -18,15 +16,11 @@ import org.mockito.junit.jupiter.MockitoExtension;
 import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 
-import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.Field;
 import java.nio.file.Path;
-import java.time.LocalDate;
 import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -38,7 +32,7 @@ public class CronSchedulerServiceTest {
     @Mock private SlackNotificationService slackNotificationService;
     @Mock private AuditService auditService;
     @Mock private AppState appState;
-    @Mock private PlannerExcelReader plannerExcelReader;
+    @Mock private PublicHolidayCache publicHolidayCache;
 
     @InjectMocks
     private CronSchedulerService schedulerService;
@@ -46,21 +40,15 @@ public class CronSchedulerServiceTest {
     @Test
     @DisplayName("validateAndSyncWorkingCron creates working-cron entries and marks endDateAjusted true when holiday is hit")
     void testValidateAndSyncWorkingCronWithHoliday(@TempDir Path tempDir) throws IOException {
-        String dataDir = tempDir.toString();
-        when(appState.getDataDir()).thenReturn(dataDir);
-
-        File f1 = tempDir.resolve("eIndkomst vacation 2099.xlsx").toFile();
-        assertTrue(f1.createNewFile());
-
         // Compute the next Friday from now to use as the public holiday date.
         // This ensures the test is time-independent: the "next fire" of "30 11 * * 5"
         // will always land on this Friday regardless of when the test runs.
         java.time.LocalDate nextFriday = java.time.LocalDate.now()
                 .with(java.time.temporal.TemporalAdjusters.next(java.time.DayOfWeek.FRIDAY));
-        List<LeaveRecord> records = Collections.singletonList(
-                new LeaveRecord("Alice", nextFriday, nextFriday, 1, "P", null)
-        );
-        when(plannerExcelReader.load(f1.getAbsolutePath())).thenReturn(records);
+
+        // Build a holiday set containing that Friday and hand it to the cache mock.
+        java.util.Date holidayDate = CronDateRangeResolver.normalizeToDate(nextFriday);
+        when(publicHolidayCache.getHolidays()).thenReturn(Collections.singleton(holidayDate));
 
         // User expression scheduled for Fridays at 11:30
         CronEntry userEntry = new CronEntry("30 11 * * 5", "Indian Team");

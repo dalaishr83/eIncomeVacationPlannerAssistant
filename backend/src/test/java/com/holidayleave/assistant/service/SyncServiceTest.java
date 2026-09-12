@@ -59,6 +59,7 @@ class SyncServiceTest {
     @Mock private PlannerExcelReader reader;
     @Mock private BoxSyncService boxSyncService;
     @Mock private AuditService auditService;
+    @Mock private PublicHolidayCache publicHolidayCache;
 
     @InjectMocks
     private SyncService syncService;

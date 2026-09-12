@@ -21,10 +21,13 @@ import org.springframework.web.bind.annotation.*;
 
 import javax.servlet.http.HttpSession;
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.nio.file.*;
 import java.time.LocalDate;
 import java.util.*;
+
+import org.apache.poi.ss.usermodel.*;
 
 /**
  * Admin-only controller.
@@ -104,6 +107,305 @@ public class AdminController {
         model.addAttribute("topbarSubtitle", "Admin — Schedule Cron");
         addActiveFilename(model);
         return "admin/schedule-cron";
+    }
+
+    /**
+     * GET /admin/master-file-view?filename=eIndkomst+vacation+2025.xlsx
+     *
+     * Opens the named master Excel file read-only and renders its contents as
+     * an HTML table in a standalone popup page (excel-viewer.html).
+     *
+     * Security:
+     *  - Route is under /admin/** → AuthInterceptor requires role="admin".
+     *  - filename validated: no path separators or ".." allowed.
+     *  - filename must be present in the server-side known-files whitelist.
+     *
+     * Read-only guarantee:
+     *  - File opened via FileInputStream only; no write-back path exists.
+     *  - WorkbookFactory.create(stream) never writes to disk.
+     */
+    @GetMapping("/admin/master-file-view")
+    public String masterFileViewPage(@RequestParam("filename") String filename, Model model) {
+
+        // ── Validate filename ────────────────────────────────────────────────
+        if (filename == null || filename.trim().isEmpty()
+                || filename.contains("/") || filename.contains("\\") || filename.contains("..")) {
+            model.addAttribute("error", "Invalid filename.");
+            return "admin/excel-viewer";
+        }
+
+        // ── Whitelist check against known master files ───────────────────────
+        boolean isKnown = false;
+        for (FileInfo fi : appState.getKnownFiles()) {
+            if (fi.getName().equals(filename)) { isKnown = true; break; }
+        }
+        if (!isKnown) {
+            model.addAttribute("error", "File not found or not a known master file.");
+            return "admin/excel-viewer";
+        }
+
+        // ── Resolve absolute path and open read-only ─────────────────────────
+        Path filePath = Paths.get(appState.getDataDir(), filename);
+        if (!filePath.toFile().exists()) {
+            model.addAttribute("error", "File does not exist on disk.");
+            return "admin/excel-viewer";
+        }
+
+        // ── Build vacation-type colour map from the application's configured types ──
+        // colour field is AARRGGBB; we need the last 6 chars (RRGGBB).
+        Map<String, String> vtColour = new LinkedHashMap<>();
+        for (com.holidayleave.assistant.model.VacationType vt : typeService.findAll()) {
+            String c = vt.color();
+            if (c != null && c.length() == 8) {
+                // Exclude white (A=available, no visible colour needed) and fully transparent
+                String rgb = c.substring(2).toUpperCase();
+                if (!"FFFFFF".equals(rgb)) vtColour.put(vt.code().toUpperCase(), rgb);
+            }
+        }
+
+        // ── Parse workbook and build per-sheet HTML tables ───────────────────
+        List<Map<String, Object>> sheets = new ArrayList<>();
+        try (FileInputStream fis = new FileInputStream(filePath.toFile());
+             Workbook workbook = WorkbookFactory.create(fis)) {
+
+            DataFormatter formatter = new DataFormatter();
+            FormulaEvaluator evaluator = workbook.getCreationHelper().createFormulaEvaluator();
+
+            for (int si = 0; si < workbook.getNumberOfSheets(); si++) {
+                Sheet sheet = workbook.getSheetAt(si);
+
+                // ── Build weekend column set for this sheet ───────────────────
+                // Scan the weekday-header row (row index 3 for the main planner sheet).
+                // A column is a weekend column when its weekday header cell has a
+                // pink (#FFB6C1) fill AND the value is "S".
+                // We use the fill-based detection so it works regardless of row position.
+                Set<Integer> weekendCols = new HashSet<>();
+                for (Row hrow : sheet) {
+                    boolean foundWeekendHeader = false;
+                    for (Cell hcell : hrow) {
+                        String fill = extractFillHex(hcell);
+                        String val  = formatter.formatCellValue(hcell).trim();
+                        if ("FFB6C1".equals(fill) && "S".equals(val)) {
+                            weekendCols.add(hcell.getColumnIndex());
+                            foundWeekendHeader = true;
+                        }
+                    }
+                    // Stop after we've processed the first row that has pink "S" cells
+                    if (foundWeekendHeader) break;
+                }
+
+                // ── Build a lookup: (row,col) → merged region ─────────────────
+                // For each CellRangeAddress we store two things:
+                //   anchorKey  (r1,c1) → the region itself  (anchor cell: emit colspan/rowspan)
+                //   coveredKey (r, c)  → true for every non-anchor cell inside the region
+                //                        (those cells must be skipped in the HTML output)
+                Map<String, org.apache.poi.ss.util.CellRangeAddress> mergeAnchor  = new HashMap<>();
+                Map<String, Boolean>                                  mergeCovered = new HashMap<>();
+                for (org.apache.poi.ss.util.CellRangeAddress mr : sheet.getMergedRegions()) {
+                    String anchorKey = mr.getFirstRow() + "," + mr.getFirstColumn();
+                    mergeAnchor.put(anchorKey, mr);
+                    for (int r = mr.getFirstRow(); r <= mr.getLastRow(); r++) {
+                        for (int c = mr.getFirstColumn(); c <= mr.getLastColumn(); c++) {
+                            // Non-anchor cells
+                            if (r != mr.getFirstRow() || c != mr.getFirstColumn()) {
+                                mergeCovered.put(r + "," + c, Boolean.TRUE);
+                            }
+                        }
+                    }
+                }
+
+                // Determine the max column index across all rows (needed so every
+                // row in the HTML has the same number of cells for alignment).
+                int maxCol = 0;
+                for (Row row : sheet) {
+                    if (row.getLastCellNum() > maxCol) maxCol = row.getLastCellNum();
+                }
+
+                // ── Find the last data row by scanning column A (index 0) ─────
+                // Rows beyond this point are empty trailing rows; we skip them
+                // entirely so weekend colour does not bleed into blank space.
+                int lastDataRowNum = -1;
+                for (Row row : sheet) {
+                    Cell colA = row.getCell(0, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                    if (colA != null) {
+                        String colAVal = "";
+                        try { colAVal = formatter.formatCellValue(colA, evaluator).trim(); }
+                        catch (Exception ignored) { colAVal = formatter.formatCellValue(colA).trim(); }
+                        if (!colAVal.isEmpty()) lastDataRowNum = row.getRowNum();
+                    }
+                }
+
+                StringBuilder html = new StringBuilder();
+                html.append("<table class=\"ev-table\">");
+
+                for (Row row : sheet) {
+                    int rowNum = row.getRowNum();
+                    // Stop rendering once we have passed the last non-empty column-A row.
+                    if (lastDataRowNum >= 0 && rowNum > lastDataRowNum) break;
+
+                    html.append("<tr>");
+                    // Use maxCol so we always emit the full column count.
+                    int lastCol = Math.max(row.getLastCellNum(), 0);
+                    for (int ci = 0; ci < lastCol; ci++) {
+
+                        // Skip cells that are inside a merge region but are not the anchor.
+                        if (Boolean.TRUE.equals(mergeCovered.get(rowNum + "," + ci))) {
+                            continue;
+                        }
+
+                        Cell cell = row.getCell(ci, Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                        String value = "";
+                        String fillHex = null;
+                        if (cell != null) {
+                            try {
+                                value = formatter.formatCellValue(cell, evaluator);
+                            } catch (Exception ignored) {
+                                value = formatter.formatCellValue(cell);
+                            }
+                            fillHex = extractFillHex(cell);
+                        }
+
+                        // ── Conditional-format colour fallback ───────────────
+                        // Vacation cells have NO_FILL at the cell style level;
+                        // Excel colours them via conditional formatting rules.
+                        // We replicate those rules here:
+                        //   1. If the cell value matches a known vacation type code,
+                        //      use its configured colour.
+                        //   2. If no cell-level fill and the column is a weekend column,
+                        //      apply the weekend pink (#FFB6C1).
+                        if (fillHex == null) {
+                            String upperVal = value.trim().toUpperCase();
+                            if (vtColour.containsKey(upperVal)) {
+                                fillHex = vtColour.get(upperVal);
+                            } else if (weekendCols.contains(ci)) {
+                                fillHex = "FFB6C1";
+                            }
+                        }
+
+                        // Strip repeated text that Excel stores in each cell of a merged
+                        // region (the dump shows "JANUARY   JANUARY   JANUARY").
+                        // We want only the clean label at the anchor.
+                        value = value.trim();
+                        // If the value is a repetition of the same word/phrase, reduce it.
+                        value = deduplicateMergedValue(value);
+
+                        // Escape HTML special characters
+                        value = value.replace("&", "&amp;")
+                                     .replace("<", "&lt;")
+                                     .replace(">", "&gt;")
+                                     .replace("\"", "&quot;");
+
+                        // Check whether this cell is a merge anchor.
+                        org.apache.poi.ss.util.CellRangeAddress mr =
+                                mergeAnchor.get(rowNum + "," + ci);
+
+                        // Build attributes
+                        StringBuilder attrs = new StringBuilder();
+                        if (mr != null) {
+                            int cs = mr.getLastColumn() - mr.getFirstColumn() + 1;
+                            int rs = mr.getLastRow()    - mr.getFirstRow()    + 1;
+                            if (cs > 1) attrs.append(" colspan=\"").append(cs).append("\"");
+                            if (rs > 1) attrs.append(" rowspan=\"").append(rs).append("\"");
+                            // Merged header cells are always centred
+                            if (cs > 1 || rs > 1) attrs.append(" class=\"ev-merged\"");
+                        }
+                        if (fillHex != null) {
+                            attrs.append(" style=\"background:#").append(fillHex).append("\"");
+                        }
+
+                        boolean isHeader = (rowNum == sheet.getFirstRowNum());
+                        String tag = isHeader ? "th" : "td";
+                        html.append("<").append(tag).append(attrs)
+                            .append(">").append(value)
+                            .append("</").append(tag).append(">");
+                    }
+                    html.append("</tr>");
+                }
+                html.append("</table>");
+
+                Map<String, Object> sheetData = new LinkedHashMap<>();
+                sheetData.put("name", sheet.getSheetName());
+                sheetData.put("html", html.toString());
+                sheets.add(sheetData);
+            }
+
+        } catch (IOException e) {
+            log.error("Excel viewer failed to read '{}': {}", filename, e.getMessage(), e);
+            model.addAttribute("error", "Could not read the file: " + e.getMessage());
+            return "admin/excel-viewer";
+        }
+
+        model.addAttribute("filename", filename);
+        model.addAttribute("sheets",   sheets);
+        return "admin/excel-viewer";
+    }
+
+    /**
+     * Excel sometimes stores the label text repeated multiple times inside a merged cell,
+     * separated by whitespace (e.g. "JANUARY   JANUARY   JANUARY").
+     * This helper detects that pattern and returns just the first occurrence.
+     */
+    private String deduplicateMergedValue(String value) {
+        if (value == null || value.isEmpty()) return value;
+        String trimmed = value.trim();
+        // Split on two or more whitespace characters; if the result is all the same token, return just one.
+        String[] parts = trimmed.split("\\s{2,}");
+        if (parts.length > 1) {
+            String first = parts[0].trim();
+            boolean allSame = true;
+            for (String p : parts) {
+                if (!p.trim().equals(first)) { allSame = false; break; }
+            }
+            if (allSame) return first;
+        }
+        return trimmed;
+    }
+
+    /**
+     * Extracts the fill (background) colour of a cell as a 6-character upper-case
+     * hex string (e.g. "FFB6C1"), or null if the cell has no fill or a default/white fill.
+     *
+     * Handles both XSSF (.xlsx) and HSSF (.xls) workbooks.
+     * Returns null for fully transparent, white (#FFFFFF), or theme-based fills
+     * that cannot be resolved to an RGB value, so that only meaningful colours
+     * are rendered in the HTML viewer.
+     */
+    private String extractFillHex(org.apache.poi.ss.usermodel.Cell cell) {
+        org.apache.poi.ss.usermodel.CellStyle style = cell.getCellStyle();
+        if (style == null) return null;
+
+        // ── XSSF (.xlsx) ─────────────────────────────────────────────────────
+        if (style instanceof org.apache.poi.xssf.usermodel.XSSFCellStyle) {
+            org.apache.poi.xssf.usermodel.XSSFCellStyle xs =
+                    (org.apache.poi.xssf.usermodel.XSSFCellStyle) style;
+            org.apache.poi.xssf.usermodel.XSSFColor fg = xs.getFillForegroundXSSFColor();
+            if (fg != null) {
+                byte[] rgb = fg.getRGB();
+                if (rgb != null && rgb.length >= 3) {
+                    String hex = String.format("%02X%02X%02X",
+                            rgb[0] & 0xFF, rgb[1] & 0xFF, rgb[2] & 0xFF);
+                    // Skip white and fully transparent fills
+                    if (!"FFFFFF".equals(hex) && !"000000".equals(hex)) return hex;
+                }
+            }
+            return null;
+        }
+
+        // ── HSSF (.xls) ──────────────────────────────────────────────────────
+        short colorIdx = style.getFillForegroundColor();
+        if (colorIdx == org.apache.poi.hssf.util.HSSFColor.HSSFColorPredefined.AUTOMATIC.getIndex()
+                || colorIdx == 0) return null;
+        org.apache.poi.hssf.util.HSSFColor color =
+                org.apache.poi.hssf.util.HSSFColor.getIndexHash().get((int) colorIdx);
+        if (color != null) {
+            short[] triplet = color.getTriplet();
+            if (triplet != null && triplet.length >= 3) {
+                String hex = String.format("%02X%02X%02X",
+                        triplet[0] & 0xFF, triplet[1] & 0xFF, triplet[2] & 0xFF);
+                if (!"FFFFFF".equals(hex)) return hex;
+            }
+        }
+        return null;
     }
 
     // ── Audit log API ─────────────────────────────────────────────────────────

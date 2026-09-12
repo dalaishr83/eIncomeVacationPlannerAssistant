@@ -1,0 +1,136 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 13px;
+    line-height: 1.5;
+    background: #f7f8fa;
+    color: #1f2328;
+}
+
+/* ── Header bar ──────────────────────────────────────────────────────── */
+.ev-header {
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+.ev-header-icon {
+    width: 28px; height: 28px; border-radius: 6px;
+    background: rgba(42, 91, 215, .1);
+    display: flex; align-items: center; justify-content: center;
+    color: #2a5bd7; flex-shrink: 0;
+}
+.ev-header-title {
+    font-size: .9rem; font-weight: 700; color: #1f2328;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.ev-badge {
+    font-size: .68rem; font-weight: 700;
+    background: #d1fae5; color: #065f46;
+    border-radius: 4px; padding: 2px 7px;
+    white-space: nowrap; flex-shrink: 0;
+}
+
+/* ── Error state ─────────────────────────────────────────────────────── */
+.ev-error {
+    margin: 40px auto; max-width: 480px; text-align: center;
+    background: #fee2e2; border: 1px solid #fca5a5;
+    border-radius: 8px; padding: 20px 24px; color: #991b1b;
+    font-size: .88rem;
+}
+
+/* ── Tab strip ───────────────────────────────────────────────────────── */
+.ev-tabs {
+    display: flex; gap: 0;
+    background: #ffffff;
+    border-bottom: 1px solid #e5e7eb;
+    padding: 0 14px;
+    overflow-x: auto;
+}
+.ev-tab-input { display: none; }
+.ev-tab-label {
+    display: inline-block;
+    padding: 8px 16px;
+    font-size: .8rem; font-weight: 600;
+    color: #57606a;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+    transition: color .12s, border-color .12s;
+    user-select: none;
+}
+.ev-tab-label:hover { color: #2a5bd7; }
+.ev-tab-input:checked + .ev-tab-label {
+    color: #2a5bd7;
+    border-bottom-color: #2a5bd7;
+}
+
+/* ── Sheet panels ────────────────────────────────────────────────────── */
+.ev-panels { padding: 14px 16px; overflow: auto; }
+.ev-panel { display: none; }
+
+/* Show the panel whose radio is checked — CSS-only tab switching */
+#tab0:checked ~ .ev-panels .ev-panel:nth-child(1),
+#tab1:checked ~ .ev-panels .ev-panel:nth-child(2),
+#tab2:checked ~ .ev-panels .ev-panel:nth-child(3),
+#tab3:checked ~ .ev-panels .ev-panel:nth-child(4),
+#tab4:checked ~ .ev-panels .ev-panel:nth-child(5),
+#tab5:checked ~ .ev-panels .ev-panel:nth-child(6),
+#tab6:checked ~ .ev-panels .ev-panel:nth-child(7),
+#tab7:checked ~ .ev-panels .ev-panel:nth-child(8),
+#tab8:checked ~ .ev-panels .ev-panel:nth-child(9),
+#tab9:checked ~ .ev-panels .ev-panel:nth-child(10) { display: block; }
+
+/* ── Table ───────────────────────────────────────────────────────────── */
+.ev-table-wrap {
+    overflow: auto;
+    border: 1px solid #e5e7eb;
+    border-radius: 8px;
+    background: #ffffff;
+}
+.ev-table {
+    border-collapse: collapse;
+    width: max-content;
+    min-width: 100%;
+    font-size: .8rem;
+}
+.ev-table th {
+    background: #f7f8fa;
+    font-weight: 700;
+    text-align: left;
+    padding: 6px 10px;
+    border: 1px solid #e5e7eb;
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+    user-select: text;
+    vertical-align: middle;
+}
+.ev-table td {
+    padding: 5px 10px;
+    border: 1px solid #e5e7eb;
+    white-space: nowrap;
+    user-select: text;
+    vertical-align: middle;
+}
+/* Merged cells: centre the content horizontally.
+   Both th and td can be merge anchors (row-1 uses th; inner rows use td). */
+.ev-merged {
+    text-align: center !important;
+    font-weight: 700;
+}
+/* Cells with an inline fill colour (vacation types / weekends) must not
+   be overridden by the alternating-row tint or the hover highlight.
+   Use a low-specificity base rule and let the inline style win. */
+.ev-table tr:nth-child(even) td:not([style]) { background: #f7f8fa; }
+.ev-table tr:hover td:not([style]) { background: #eff6ff; }
+/* Slightly dim the inline-colour cells on hover for a subtle effect */
+.ev-table tr:hover td[style],
+.ev-table tr:hover th[style] { opacity: .88; }

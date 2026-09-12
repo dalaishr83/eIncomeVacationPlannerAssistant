@@ -22,8 +22,8 @@ public class VacationTypeService {
     static {
         DEFAULTS = new ArrayList<>();
         DEFAULTS.add(new VacationType("V",  "Vacation",                "FF92D050"));
-        DEFAULTS.add(new VacationType("P",  "Public Holiday",          "FFFF0000"));
-        DEFAULTS.add(new VacationType("PC", "Personal Choice Holiday", "FFFFFF00"));
+        DEFAULTS.add(new VacationType("P",  "Public Holiday",          "FFFFC8C8"));
+        DEFAULTS.add(new VacationType("PC", "Personal Choice Holiday", "FFFFA500"));
         DEFAULTS.add(new VacationType("H",  "Half-day Vacation",       "FFFFC000"));
         DEFAULTS.add(new VacationType("E",  "Education",               "FF00B0F0"));
         DEFAULTS.add(new VacationType("O",  "Other",                   "FFD3D3D3"));

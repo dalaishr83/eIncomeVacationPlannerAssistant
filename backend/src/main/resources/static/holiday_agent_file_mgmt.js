@@ -210,6 +210,21 @@
                 li.appendChild(badge);
             }
 
+            var viewBtn = document.createElement("button");
+            viewBtn.className = "fm-file-view-btn";
+            viewBtn.title = "View " + f.name;
+            viewBtn.innerHTML = '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+            viewBtn.addEventListener("click", function (e) {
+                e.stopPropagation();
+                window.open(
+                    "/admin/master-file-view?filename=" + encodeURIComponent(f.name),
+                    "_blank",
+                    "width=1100,height=700,resizable=yes,scrollbars=yes,noopener"
+                );
+            });
+            li.appendChild(viewBtn);
+
+
             var delBtn = document.createElement("button");
             delBtn.className = "fm-file-delete-btn";
             delBtn.title = "Delete " + f.name;

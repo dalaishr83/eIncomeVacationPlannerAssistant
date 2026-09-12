@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title th:text="${filename != null ? filename + ' — View' : 'File Viewer'}">File Viewer</title>
+    <link rel="stylesheet" th:href="@{/excel_viewer.css}">
+</head>
+<body>
+
+    <!-- Error state: shown when the controller put an "error" attribute in the model -->
+    <div class="ev-error" th:if="${error != null}">
+        <strong>Unable to display file</strong><br>
+        <span th:text="${error}"></span>
+    </div>
+
+    <!-- Normal state: filename + sheets present -->
+    <th:block th:if="${error == null and filename != null}">
+
+        <!-- Header -->
+        <div class="ev-header">
+            <div class="ev-header-icon">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                     stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                </svg>
+            </div>
+            <span class="ev-header-title" th:text="${filename}"></span>
+            <span class="ev-badge">Read-only</span>
+        </div>
+
+        <!-- CSS-only tab radios must be siblings of both .ev-tabs and .ev-panels -->
+        <th:block th:each="sheet, stat : ${sheets}">
+            <input class="ev-tab-input" type="radio" name="ev-tab"
+                   th:id="'tab' + ${stat.index}"
+                   th:checked="${stat.index == 0}">
+        </th:block>
+
+        <!-- Tab strip -->
+        <div class="ev-tabs" th:if="${sheets.size() > 1}">
+            <th:block th:each="sheet, stat : ${sheets}">
+                <label class="ev-tab-label"
+                       th:for="'tab' + ${stat.index}"
+                       th:text="${sheet.name}"></label>
+            </th:block>
+        </div>
+
+        <!-- Sheet panels -->
+        <div class="ev-panels">
+            <div class="ev-panel" th:each="sheet : ${sheets}">
+                <div class="ev-table-wrap">
+                    <th:block th:utext="${sheet.html}"></th:block>
+                </div>
+            </div>
+        </div>
+
+    </th:block>
+
+</body>
+</html>

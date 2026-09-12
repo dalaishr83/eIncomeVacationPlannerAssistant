@@ -16,6 +16,7 @@ public class AppProperties {
     private String excelFilePaths = "";
     private int syncIntervalSeconds = 300;
     private long cronValidationIntervalSeconds = 3600;
+    private String cronTimezone = "Asia/Kolkata";
     private String loginUsername = "admin";
     private String loginPasswordHash = "";
 
@@ -73,6 +74,8 @@ public class AppProperties {
     public void setSyncIntervalSeconds(int syncIntervalSeconds) { this.syncIntervalSeconds = syncIntervalSeconds; }
     public long getCronValidationIntervalSeconds() { return cronValidationIntervalSeconds; }
     public void setCronValidationIntervalSeconds(long cronValidationIntervalSeconds) { this.cronValidationIntervalSeconds = cronValidationIntervalSeconds; }
+    public String getCronTimezone() { return cronTimezone; }
+    public void setCronTimezone(String cronTimezone) { this.cronTimezone = cronTimezone; }
     public String getLoginUsername() { return loginUsername; }
     public void setLoginUsername(String loginUsername) { this.loginUsername = loginUsername; }
     public String getLoginPasswordHash() { return loginPasswordHash; }
