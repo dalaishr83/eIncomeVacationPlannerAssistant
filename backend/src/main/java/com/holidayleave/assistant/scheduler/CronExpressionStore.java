@@ -177,6 +177,7 @@ public class CronExpressionStore {
         private String  createdAt;
         private boolean enabled = true;
         private boolean endDateAjusted = false;
+        private String  state = "stopped";
 
         public CronEntry() {}
 
@@ -187,6 +188,7 @@ public class CronExpressionStore {
             this.createdAt  = LocalDateTime.now().format(ISO_LOCAL);
             this.enabled    = true;
             this.endDateAjusted = false;
+            this.state      = "stopped";
         }
 
         private String  originalExpression;
@@ -200,6 +202,7 @@ public class CronExpressionStore {
                 this.createdAt = other.createdAt;
                 this.enabled = other.enabled;
                 this.endDateAjusted = other.endDateAjusted;
+                this.state = other.state != null ? other.state : "stopped";
             }
         }
 
@@ -215,6 +218,8 @@ public class CronExpressionStore {
         public void    setEnabled(boolean en)   { this.enabled = en; }
         public boolean isEndDateAjusted()       { return endDateAjusted; }
         public void    setEndDateAjusted(boolean endDateAjusted) { this.endDateAjusted = endDateAjusted; }
+        public String  getState()               { return state != null ? state : "stopped"; }
+        public void    setState(String state)   { this.state = state; }
         public String  getOriginalExpression()  { return originalExpression != null ? originalExpression : expression; }
         public void    setOriginalExpression(String orig) { this.originalExpression = orig; }
 

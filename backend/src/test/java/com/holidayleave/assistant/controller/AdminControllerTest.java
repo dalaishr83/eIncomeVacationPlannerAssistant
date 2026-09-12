@@ -52,6 +52,7 @@ class AdminControllerTest {
     @Mock private AuditService                  auditService;
     @Mock private SyncService                   syncService;
     @Mock private HolidaySettingsService        holidaySettingsService;
+    @Mock private TeamForecastService           teamForecastService;
     @InjectMocks private AdminController controller;
 
     private MockHttpSession session;
@@ -409,5 +410,41 @@ class AdminControllerTest {
         String view = controller.masterFileViewPage("eIndkomst vacation 2025.xlsx", model);
         assertEquals("admin/excel-viewer", view);
         assertNotNull(model.getAttribute("error"));
+    }
+
+    @Test
+    void downloadTeamForecastExcel_validFile_returnsFile(@TempDir Path tempDir) throws IOException {
+        Path tempSubdir = tempDir.resolve("temp");
+        java.nio.file.Files.createDirectories(tempSubdir);
+        Path forecastFile = tempSubdir.resolve("team-forecast-123456.xlsx");
+        java.nio.file.Files.write(forecastFile, "test-excel-content".getBytes());
+
+        when(appState.getDataDir()).thenReturn(tempDir.toString());
+
+        ResponseEntity<org.springframework.core.io.Resource> response =
+                controller.downloadTeamForecastExcel("team-forecast-123456.xlsx");
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertTrue(response.getHeaders().getFirst("Content-Disposition").contains("team-forecast-123456.xlsx"));
+    }
+
+    @Test
+    void downloadTeamForecastExcel_invalidFileName_returnsBadRequest() {
+        ResponseEntity<org.springframework.core.io.Resource> res1 =
+                controller.downloadTeamForecastExcel("../secret.json");
+        assertEquals(HttpStatus.BAD_REQUEST, res1.getStatusCode());
+
+        ResponseEntity<org.springframework.core.io.Resource> res2 =
+                controller.downloadTeamForecastExcel("other-file.txt");
+        assertEquals(HttpStatus.BAD_REQUEST, res2.getStatusCode());
+    }
+
+    @Test
+    void downloadTeamForecastExcel_nonExistentFile_returnsNotFound(@TempDir Path tempDir) {
+        when(appState.getDataDir()).thenReturn(tempDir.toString());
+        ResponseEntity<org.springframework.core.io.Resource> response =
+                controller.downloadTeamForecastExcel("team-forecast-999999.xlsx");
+        assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
     }
 }

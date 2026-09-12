@@ -300,6 +300,25 @@
 }
 .sc-team-indian    { background: #fef3c7; color: #92400e; }
 .sc-team-eindkomst { background: #e0f2fe; color: #0369a1; }
+.sc-team-cleanup   { background: #f3e8ff; color: #6b21a8; }
+
+.sc-state-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    transition: background 0.15s, color 0.15s;
+}
+.sc-state-badge.state-running {
+    background: #dcfce7;
+    color: #16a34a;
+}
+.sc-state-badge.state-stopped {
+    background: #f1f5f9;
+    color: #94a3b8;
+}
 
 .sc-delete-btn {
     background: none; border: none; cursor: pointer; padding: 4px 6px;

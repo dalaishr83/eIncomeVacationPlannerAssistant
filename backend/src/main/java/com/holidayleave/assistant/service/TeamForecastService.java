@@ -18,9 +18,11 @@ import java.awt.Color;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.nio.file.DirectoryStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.nio.file.attribute.BasicFileAttributes;
 import java.time.LocalDate;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
@@ -74,15 +76,23 @@ public class TeamForecastService {
         private final List<ForecastRow> rows;
         /** Ordered month labels ("MMMM yyyy") for the requested date range. */
         private final List<String> months;
+        /** Generated Excel report filename located under {dataDir}/temp/. */
+        private final String excelFilename;
 
         public TeamForecastResult(String html, int rowCount, String summaryText, String slackTableText,
                                   List<ForecastRow> rows, List<String> months) {
+            this(html, rowCount, summaryText, slackTableText, rows, months, null);
+        }
+
+        public TeamForecastResult(String html, int rowCount, String summaryText, String slackTableText,
+                                  List<ForecastRow> rows, List<String> months, String excelFilename) {
             this.html           = html;
             this.rowCount       = rowCount;
             this.summaryText    = summaryText;
             this.slackTableText = slackTableText;
             this.rows           = rows;
             this.months         = months;
+            this.excelFilename  = excelFilename;
         }
 
         public String getHtml()                   { return html; }
@@ -91,6 +101,7 @@ public class TeamForecastService {
         public String getSlackTableText()         { return slackTableText; }
         public List<ForecastRow> getRows()        { return rows; }
         public List<String>      getMonths()      { return months; }
+        public String getExcelFilename()          { return excelFilename; }
     }
 
     /**
@@ -134,7 +145,19 @@ public class TeamForecastService {
         // 8. Build plain-text summary for Slack
         String summary = buildSummaryText(team, startDate, endDate, rows.size());
 
-        return new TeamForecastResult(html, rows.size(), summary, slackTableText, rows, months);
+        // 9. Generate and save Excel file to {dataDir}/temp/
+        String excelFilename = null;
+        try {
+            String dataDir = appState != null && appState.getDataDir() != null
+                    ? appState.getDataDir()
+                    : "data";
+            Path excelPath = writeForecastExcel(rows, months, team, startDate, endDate, dataDir);
+            excelFilename = excelPath.getFileName().toString();
+        } catch (Exception e) {
+            log.warn("TeamForecastService: Failed to generate Excel report file upfront: {}", e.getMessage());
+        }
+
+        return new TeamForecastResult(html, rows.size(), summary, slackTableText, rows, months, excelFilename);
     }
 
     // ── Master file resolution ─────────────────────────────────────────────────
@@ -340,6 +363,55 @@ public class TeamForecastService {
      * @return absolute {@link Path} to the generated .xlsx file
      * @throws IOException if the temp directory cannot be created or the workbook cannot be written
      */
+    /**
+     * Housekeeping utility: deletes forecast Excel files in {@code {dataDir}/temp/}
+     * that are older than the specified age threshold.
+     *
+     * @param dataDir       base data directory containing the temp/ folder
+     * @param maxAgeMillis  maximum allowed age in milliseconds (e.g. 3,600,000 for 1 hour)
+     * @return count of deleted files
+     */
+    public int cleanupForecastReport(String dataDir, long maxAgeMillis) {
+        if (dataDir == null || dataDir.trim().isEmpty()) {
+            dataDir = appState != null && appState.getDataDir() != null
+                    ? appState.getDataDir()
+                    : "data";
+        }
+        Path tempDir = Paths.get(dataDir, "temp");
+        if (!Files.exists(tempDir) || !Files.isDirectory(tempDir)) {
+            log.debug("cleanupForecastReport: temp directory '{}' does not exist or is not a directory", tempDir);
+            return 0;
+        }
+
+        long now = System.currentTimeMillis();
+        int deletedCount = 0;
+
+        try (DirectoryStream<Path> stream = Files.newDirectoryStream(tempDir, "team-forecast-*.xlsx")) {
+            for (Path file : stream) {
+                try {
+                    BasicFileAttributes attrs = Files.readAttributes(file, BasicFileAttributes.class);
+                    long fileTime = attrs.lastModifiedTime().toMillis();
+                    long age = now - fileTime;
+
+                    if (age > maxAgeMillis) {
+                        Files.delete(file);
+                        deletedCount++;
+                        log.info("cleanupForecastReport: Deleted old forecast report '{}' (age: {}s)", file.getFileName(), age / 1000);
+                    } else {
+                        log.debug("cleanupForecastReport: Retaining recent forecast report '{}' (age: {}s)", file.getFileName(), age / 1000);
+                    }
+                } catch (Exception ex) {
+                    log.warn("cleanupForecastReport: Failed to inspect/delete '{}': {}", file.getFileName(), ex.getMessage());
+                }
+            }
+        } catch (Exception ex) {
+            log.error("cleanupForecastReport: Failed to read temp directory '{}': {}", tempDir, ex.getMessage(), ex);
+        }
+
+        log.info("cleanupForecastReport completed: deleted {} file(s) from '{}'", deletedCount, tempDir);
+        return deletedCount;
+    }
+
     public Path writeForecastExcel(List<ForecastRow> rows,
                                    List<String> months,
                                    String team,

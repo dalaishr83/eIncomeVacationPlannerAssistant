@@ -54,6 +54,7 @@ public class SlackNotificationService {
     private static final int MAX_ATTEMPTS = 3;
 
     @Autowired private AppProperties    props;
+    @Autowired private AppState         appState;
     @Autowired private AuditService     auditService;
     @Autowired private TeamForecastService teamForecastService;
 
@@ -734,7 +735,9 @@ public class SlackNotificationService {
         }
 
         // 1. Write the Excel workbook to {DATA_DIR}/temp/
-        String dataDir = props.getDataDir() != null ? props.getDataDir() : "data";
+        String dataDir = appState != null && appState.getDataDir() != null
+                ? appState.getDataDir()
+                : (props.getDataDir() != null ? props.getDataDir() : "data");
         Path excelPath = teamForecastService.writeForecastExcel(
                 rows, months, team, startDate, endDate, dataDir);
 
@@ -803,13 +806,8 @@ public class SlackNotificationService {
 
             log.info("Slack forecast Excel file uploaded successfully: team='{}', file='{}'", team, filename);
 
-            // 5. Delete the temp file only after confirmed successful upload
-            try {
-                Files.delete(excelPath);
-                log.debug("Temp forecast Excel file deleted: {}", excelPath);
-            } catch (Exception deleteEx) {
-                log.warn("Could not delete temp forecast Excel file '{}': {}", excelPath, deleteEx.getMessage());
-            }
+            // 5. Retain generated Excel file in temp directory for UI download and housekeeping cron
+            log.debug("Retaining forecast Excel file at '{}' for UI download/housekeeping", excelPath);
 
         } catch (Exception ex) {
             // Upload failed — leave temp file in place for diagnosis

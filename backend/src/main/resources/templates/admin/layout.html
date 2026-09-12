@@ -257,9 +257,9 @@
                 <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg>
                 Clear
             </button>
-            <button class="rp-btn-cancel tf-btn-copy" id="tfCopyBtn" type="button" disabled>
-                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
-                Copy
+            <button class="rp-btn-cancel tf-btn-download" id="tfDownloadBtn" type="button" disabled>
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="margin-right:4px;vertical-align:middle;"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                Excel Download
             </button>
             <button class="rp-btn-cancel" id="tfCloseActionBtn" type="button">
                 Close
@@ -530,12 +530,13 @@
     var closeActionBtn = document.getElementById("tfCloseActionBtn");
     var submitBtn      = document.getElementById("tfSubmitBtn");
     var clearBtn       = document.getElementById("tfClearBtn");
-    var copyBtn        = document.getElementById("tfCopyBtn");
+    var downloadBtn    = document.getElementById("tfDownloadBtn");
     var msgEl          = document.getElementById("tfMsg");
     var resultArea     = document.getElementById("tfResult");
     var resultInner    = document.getElementById("tfResultInner");
     var startInput     = document.getElementById("tfStartDate");
     var endInput       = document.getElementById("tfEndDate");
+    var currentExcelFile = null;
 
     if (!backdrop || !openBtn) return;
 
@@ -554,8 +555,9 @@
         if (endInput)   endInput.value   = "";
         setMsg("", "");
         hideResult();
-        if (submitBtn) submitBtn.disabled = false;
-        if (copyBtn)   copyBtn.disabled   = true;
+        currentExcelFile = null;
+        if (submitBtn)   submitBtn.disabled   = false;
+        if (downloadBtn) downloadBtn.disabled = true;
     }
 
     function hideResult() {
@@ -611,38 +613,45 @@
 
     // ── Report rendering ──────────────────────────────────────────────────────
 
-    var lastReportText = "";
-
-    function extractReportText(container) {
-        var lines = [];
-        var titleEl = container.querySelector(".tf-report-title");
-        if (titleEl) lines.push(titleEl.textContent.trim());
-        var metaEl = container.querySelector(".tf-report-meta");
-        if (metaEl) lines.push(metaEl.textContent.trim());
-        if (lines.length) lines.push("");
-        var table = container.querySelector(".tf-report-table");
-        if (table) {
-            table.querySelectorAll("tr").forEach(function (row) {
-                var cols = [];
-                row.querySelectorAll("th, td").forEach(function (cell) { cols.push(cell.textContent.trim()); });
-                if (cols.length) lines.push(cols.join("\t"));
-            });
-        }
-        return lines.join("\n");
+    function formatDateDisplay(isoStr) {
+        if (!isoStr) return "";
+        try {
+            var parts = isoStr.split("-");
+            var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+            var dd = String(d.getDate()).padStart(2, "0");
+            var mo = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getMonth()];
+            var yy = d.getFullYear();
+            return dd + " " + mo + " " + yy;
+        } catch (e) { return isoStr; }
     }
 
     function showReport(data) {
         if (!resultArea || !resultInner) return;
         resultInner.innerHTML = "";
-        lastReportText = "";
-        if (data.html) {
-            resultInner.innerHTML = data.html;
-            lastReportText = extractReportText(resultInner);
-            if (copyBtn) copyBtn.disabled = false;
-        } else {
-            resultInner.innerHTML = '<p class="tf-no-records">No vacation records found for the selected criteria.</p>';
-            if (copyBtn) copyBtn.disabled = true;
-        }
+        currentExcelFile = data.excelFilename || null;
+
+        var now = new Date();
+        var nowStr = String(now.getDate()).padStart(2, "0") + " " +
+                     ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][now.getMonth()] + " " +
+                     now.getFullYear();
+
+        var team = data.team || "Team";
+        var startFormatted = formatDateDisplay(data.startDate);
+        var endFormatted   = formatDateDisplay(data.endDate);
+
+        var headerHtml =
+            '<div class="tf-report-header">' +
+              '<p class="tf-report-title">Team Vacation Forecast Report</p>' +
+              '<p class="tf-report-meta">' +
+                '<strong>Team:</strong> ' + team + ' &nbsp;|&nbsp; ' +
+                '<strong>Period:</strong> ' + startFormatted + ' &ndash; ' + endFormatted + ' &nbsp;|&nbsp; ' +
+                '<strong>As of:</strong> ' + nowStr +
+              '</p>' +
+            '</div>';
+
+        resultInner.innerHTML = headerHtml;
+        if (downloadBtn) downloadBtn.disabled = !currentExcelFile;
+
         resultArea.style.display = "block";
         resultArea.scrollTop = 0;
     }
@@ -662,6 +671,7 @@
             if (endVal < startVal) { setMsg("Start date must not be after end date.", "error"); return; }
 
             submitBtn.disabled = true;
+            if (downloadBtn) downloadBtn.disabled = true;
             hideResult();
             showSpinner();
 
@@ -673,8 +683,12 @@
                 });
                 var data = await res.json();
                 hideSpinner();
-                if (data.error) { setMsg(data.error, "error"); }
-                else            { setMsg("", ""); showReport(data); }
+                if (data.error) {
+                    setMsg(data.error, "error");
+                } else {
+                    setMsg("", "");
+                    showReport(data);
+                }
             } catch (e) {
                 hideSpinner();
                 setMsg("Network error. Please try again.", "error");
@@ -684,34 +698,18 @@
         });
     }
 
-    // ── Copy ──────────────────────────────────────────────────────────────────
+    // ── Excel Download ────────────────────────────────────────────────────────
 
-    if (copyBtn) {
-        copyBtn.addEventListener("click", function () {
-            if (!lastReportText) return;
-            var originalLabel = copyBtn.innerHTML;
-            function onSuccess() {
-                copyBtn.innerHTML =
-                    '<svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="margin-right:4px;vertical-align:middle;"><polyline points="20 6 9 12 4 10"/><line x1="4" y1="10" x2="4" y2="20"/></svg>' +
-                    'Copied \u2713';
-                setTimeout(function () { copyBtn.innerHTML = originalLabel; }, 1500);
-            }
-            function onError() { setMsg("Copy to clipboard failed.", "error"); }
-
-            if (navigator.clipboard && navigator.clipboard.writeText) {
-                navigator.clipboard.writeText(lastReportText).then(onSuccess, onError);
-            } else {
-                try {
-                    var ta = document.createElement("textarea");
-                    ta.value = lastReportText;
-                    ta.style.cssText = "position:fixed;top:-9999px;left:-9999px;opacity:0;";
-                    document.body.appendChild(ta);
-                    ta.select();
-                    document.execCommand("copy");
-                    document.body.removeChild(ta);
-                    onSuccess();
-                } catch (ex) { onError(); }
-            }
+    if (downloadBtn) {
+        downloadBtn.addEventListener("click", function () {
+            if (!currentExcelFile) return;
+            var downloadUrl = "/api/admin/team-forecast/download?file=" + encodeURIComponent(currentExcelFile);
+            var a = document.createElement("a");
+            a.href = downloadUrl;
+            a.download = currentExcelFile;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         });
     }
 

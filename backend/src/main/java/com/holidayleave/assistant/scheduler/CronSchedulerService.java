@@ -89,78 +89,173 @@ public class CronSchedulerService {
                 lastFired);
     }
 
+    public synchronized boolean isRunning() {
+        return running;
+    }
+
     // ── Start / Stop ──────────────────────────────────────────────────────────
 
     /**
-     * Starts the scheduler: reads all enabled entries from {@link CronExpressionStore}
-     * and registers a live cron task for each.
+     * Starts the specified cron expressions by id.
+     * Updates their persisted state in {@code cron.json} to "running".
      *
-     * @return number of expressions actually scheduled
-     * @throws IllegalStateException if the scheduler is already running
+     * @param ids collection of cron entry IDs to start
+     * @return number of expressions actively scheduled
      */
-    public synchronized int start() {
-        if (running) {
-            throw new IllegalStateException("Scheduler is already running.");
+    public synchronized int startEntries(Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalStateException("No cron expressions selected. Please select at least one expression.");
         }
         List<CronEntry> userEntries = store.readAll();
         if (userEntries.isEmpty()) {
             throw new IllegalStateException("No cron expressions configured. Add at least one expression first.");
         }
 
-        taskScheduler = buildTaskScheduler();
-        taskScheduler.initialize();
-
-        // 1. Perform initial background validation and sync working-cron.json
-        validateAndSyncWorkingCron();
-
-        // 2. Schedule background validation task based on configured interval (in ms)
-        long intervalSeconds = appProperties != null && appProperties.getCronValidationIntervalSeconds() > 0
-                ? appProperties.getCronValidationIntervalSeconds()
-                : 3600L;
-        long intervalMillis = intervalSeconds * 1000L;
-        log.info("CronSchedulerService: background validation task configured to run every {}s ({}ms)", intervalSeconds, intervalMillis);
-
-        hourlyValidationFuture = taskScheduler.scheduleWithFixedDelay(new Runnable() {
-            @Override
-            public void run() {
-                try {
-                    log.info("CronSchedulerService: background validation running...");
-                    // Only reschedule live tasks when the working store actually changed
-                    // (i.e. an expression was preponed due to a public holiday/weekend).
-                    // Without this guard, every validation cycle cancelled and re-registered
-                    // the CronTrigger futures, resetting their next-fire countdown and
-                    // preventing them from ever firing.
-                    boolean changed = validateAndSyncWorkingCron();
-                    if (changed) {
-                        log.info("CronSchedulerService: working-cron.json changed — rescheduling live tasks");
-                        rescheduleFromWorkingStore();
-                    }
-                } catch (Exception e) {
-                    log.error("CronSchedulerService: background validation error: {}", e.getMessage(), e);
-                }
+        Set<String> idSet = new HashSet<>(ids);
+        boolean anyUpdated = false;
+        for (CronEntry entry : userEntries) {
+            if (idSet.contains(entry.getId())) {
+                entry.setState("running");
+                anyUpdated = true;
             }
-        }, intervalMillis);
+        }
 
-        running = true;
+        if (anyUpdated) {
+            try {
+                store.saveAll(userEntries);
+            } catch (IOException e) {
+                log.error("CronSchedulerService: failed to persist cron.json on start: {}", e.getMessage(), e);
+            }
+        }
 
-        // 3. Register live cron jobs using working-cron.json as the source of truth
+        ensureSchedulerRunning();
+        validateAndSyncWorkingCron();
         int count = rescheduleFromWorkingStore();
 
-        log.info("CronSchedulerService started with {} expression(s)", count);
+        log.info("CronSchedulerService: started entries {}, total active: {}", ids, count);
         auditService.log("cron_scheduler_started", "system", null,
-                "Scheduler started with " + count + " expression(s)", "success", "cron");
+                "Scheduler started for " + ids.size() + " expression(s), total active: " + count, "success", "cron");
         return count;
     }
 
     /**
-     * Stops the scheduler: cancels all futures, stops hourly validation, and shuts down the thread pool.
+     * Starts all configured expressions (legacy fallback / convenience).
+     */
+    public synchronized int start() {
+        List<CronEntry> userEntries = store.readAll();
+        if (userEntries.isEmpty()) {
+            throw new IllegalStateException("No cron expressions configured. Add at least one expression first.");
+        }
+        List<String> allIds = new ArrayList<>();
+        for (CronEntry e : userEntries) {
+            if (e.getId() != null) allIds.add(e.getId());
+        }
+        return startEntries(allIds);
+    }
+
+    /**
+     * Stops the specified cron expressions by id.
+     * Updates their persisted state in {@code cron.json} to "stopped".
      *
-     * @throws IllegalStateException if the scheduler is not running
+     * @param ids collection of cron entry IDs to stop
+     * @return number of remaining active expressions
+     */
+    public synchronized int stopEntries(Collection<String> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalStateException("No cron expressions selected to stop.");
+        }
+        List<CronEntry> userEntries = store.readAll();
+        Set<String> idSet = new HashSet<>(ids);
+        boolean anyUpdated = false;
+        for (CronEntry entry : userEntries) {
+            if (idSet.contains(entry.getId())) {
+                entry.setState("stopped");
+                anyUpdated = true;
+            }
+        }
+
+        if (anyUpdated) {
+            try {
+                store.saveAll(userEntries);
+            } catch (IOException e) {
+                log.error("CronSchedulerService: failed to persist cron.json on stop: {}", e.getMessage(), e);
+            }
+        }
+
+        for (String id : idSet) {
+            ScheduledFuture<?> future = activeFutures.remove(id);
+            if (future != null) {
+                future.cancel(false);
+            }
+        }
+
+        if (running) {
+            validateAndSyncWorkingCron();
+            rescheduleFromWorkingStore();
+            if (activeFutures.isEmpty()) {
+                tearDownScheduler();
+            }
+        }
+
+        log.info("CronSchedulerService: stopped entries {}, remaining active: {}", ids, activeFutures.size());
+        auditService.log("cron_scheduler_stopped", "system", null,
+                "Scheduler stopped for " + ids.size() + " expression(s)", "success", "cron");
+        return activeFutures.size();
+    }
+
+    /**
+     * Stops all active cron expressions and shuts down the thread pool.
      */
     public synchronized void stop() {
-        if (!running) {
-            throw new IllegalStateException("Scheduler is not running.");
+        List<CronEntry> userEntries = store.readAll();
+        for (CronEntry entry : userEntries) {
+            entry.setState("stopped");
         }
+        try {
+            store.saveAll(userEntries);
+        } catch (IOException e) {
+            log.error("CronSchedulerService: failed to persist cron.json on stopAll: {}", e.getMessage(), e);
+        }
+
+        tearDownScheduler();
+        validateAndSyncWorkingCron();
+        log.info("CronSchedulerService stopped all");
+        auditService.log("cron_scheduler_stopped", "system", null,
+                "Scheduler stopped all", "success", "cron");
+    }
+
+    private void ensureSchedulerRunning() {
+        if (!running || taskScheduler == null) {
+            taskScheduler = buildTaskScheduler();
+            taskScheduler.initialize();
+
+            long intervalSeconds = appProperties != null && appProperties.getCronValidationIntervalSeconds() > 0
+                    ? appProperties.getCronValidationIntervalSeconds()
+                    : 3600L;
+            long intervalMillis = intervalSeconds * 1000L;
+            log.info("CronSchedulerService: background validation task configured to run every {}s ({}ms)", intervalSeconds, intervalMillis);
+
+            hourlyValidationFuture = taskScheduler.scheduleWithFixedDelay(new Runnable() {
+                @Override
+                public void run() {
+                    try {
+                        log.info("CronSchedulerService: background validation running...");
+                        boolean changed = validateAndSyncWorkingCron();
+                        if (changed) {
+                            log.info("CronSchedulerService: working-cron.json changed — rescheduling live tasks");
+                            rescheduleFromWorkingStore();
+                        }
+                    } catch (Exception e) {
+                        log.error("CronSchedulerService: background validation error: {}", e.getMessage(), e);
+                    }
+                }
+            }, intervalMillis);
+
+            running = true;
+        }
+    }
+
+    private void tearDownScheduler() {
         if (hourlyValidationFuture != null) {
             hourlyValidationFuture.cancel(false);
             hourlyValidationFuture = null;
@@ -174,9 +269,6 @@ public class CronSchedulerService {
             taskScheduler = null;
         }
         running = false;
-        log.info("CronSchedulerService stopped");
-        auditService.log("cron_scheduler_stopped", "system", null,
-                "Scheduler stopped", "success", "cron");
     }
 
     // ── Expression management (live registration/cancellation) ────────────────
@@ -189,7 +281,9 @@ public class CronSchedulerService {
     public synchronized void onEntryAdded(CronEntry entry) {
         if (running) {
             validateAndSyncWorkingCron();
-            rescheduleFromWorkingStore();
+            if ("running".equalsIgnoreCase(entry.getState())) {
+                rescheduleFromWorkingStore();
+            }
             log.debug("CronSchedulerService: live-updated after entry add for id={}", entry.getId());
         }
     }
@@ -249,6 +343,7 @@ public class CronSchedulerService {
 
         for (CronEntry orig : originalList) {
             CronEntry workingEntry = new CronEntry(orig);
+            workingEntry.setState(orig.getState());
             workingEntry.setOriginalExpression(orig.getExpression());
             CronEntry previousWorking = existingWorkingMap.get(orig.getId());
 
@@ -307,7 +402,7 @@ public class CronSchedulerService {
         List<CronEntry> workingEntries = store.readWorkingAll();
         int count = 0;
         for (CronEntry entry : workingEntries) {
-            if (entry.isEnabled()) {
+            if (entry.isEnabled() && "running".equalsIgnoreCase(entry.getState())) {
                 scheduleEntry(entry);
                 count++;
             }
@@ -355,8 +450,7 @@ public class CronSchedulerService {
     }
 
     /**
-     * Executed on each cron fire: resolves the date range, generates the forecast,
-     * and delivers it to Slack using the existing workflow.
+     * Executed on each cron fire: routes to housekeeping cleanup or forecast report delivery.
      */
     private void executeForecast(CronEntry entry) {
         ZoneId cronZone = ZoneId.of(appProperties != null ? appProperties.getCronTimezone() : "Asia/Kolkata");
@@ -364,6 +458,27 @@ public class CronSchedulerService {
         log.info("CronSchedulerService: firing for id={} team='{}' expr='{}' date={}",
                 entry.getId(), entry.getTeam(), entry.getExpression(), fireDate);
         lastFired = LocalDateTime.now(cronZone).format(ISO_FMT);
+
+        // If this entry is configured for Cleanup housekeeping
+        if ("Cleanup".equalsIgnoreCase(entry.getTeam())) {
+            String dataDir = appState != null && appState.getDataDir() != null
+                    ? appState.getDataDir()
+                    : (appProperties != null && appProperties.getDataDir() != null ? appProperties.getDataDir() : "data");
+            // Delete forecast Excel files older than 1 hour (3,600,000 ms)
+            long oneHourMillis = 3600_000L;
+            try {
+                int deletedCount = teamForecastService.cleanupForecastReport(dataDir, oneHourMillis);
+                auditService.log("cron_cleanup_executed", "system", null,
+                        "id=" + entry.getId() + " expr=" + entry.getExpression() + " deletedFiles=" + deletedCount,
+                        "success", "cron");
+            } catch (Exception ex) {
+                log.error("CronSchedulerService: Cleanup execution failed for id={}: {}", entry.getId(), ex.getMessage(), ex);
+                auditService.log("cron_cleanup_failed", "system", null,
+                        "id=" + entry.getId() + " error=" + ex.getMessage(),
+                        "error", "cron");
+            }
+            return;
+        }
 
         // 1. Resolve start/end dates from the cron expression + fire date using the cached holiday set
         Set<Date> publicHolidays = publicHolidayCache != null

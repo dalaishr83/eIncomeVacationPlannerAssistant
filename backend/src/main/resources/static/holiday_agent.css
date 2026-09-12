@@ -847,10 +847,10 @@ html, body {
 
 /* ── Team Forecast Modal ─────────────────────────────────────────────────── */
 
-/* Wider modal than Reset Password; flex column so result area scrolls within viewport */
+/* Compact modal tailored for Team Vacation Forecast form components */
 .tf-modal {
-  width: min(96vw, 960px);
-  max-height: 90vh;
+  width: min(92vw, 480px);
+  max-height: 85vh;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1060,14 +1060,14 @@ html, body {
   font-size: 13px;
 }
 
-/* Copy button — disabled state for border-style button */
-.tf-btn-copy:disabled {
+/* Download button — disabled state for border-style button */
+.tf-btn-download:disabled {
   opacity: 0.45;
   cursor: not-allowed;
 }
 
 @media (max-width: 768px) {
-  .tf-modal { width: min(98vw, 960px); max-height: 92vh; }
+  .tf-modal { width: min(94vw, 480px); max-height: 88vh; }
   .tf-date-row { grid-template-columns: 1fr; }
   .tf-radio-group { flex-direction: column; }
 }

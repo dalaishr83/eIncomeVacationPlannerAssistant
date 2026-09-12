@@ -14,6 +14,10 @@ import com.holidayleave.assistant.service.TeamForecastService.TeamForecastResult
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Controller;
 import org.springframework.ui.Model;
@@ -1284,9 +1288,13 @@ public class AdminController {
                     + " rows=" + result.getRowCount(), "success", "api");
 
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("html",     result.getHtml());
-            r.put("rowCount", result.getRowCount());
-            r.put("summary",  result.getSummaryText());
+            r.put("html",          result.getHtml());
+            r.put("rowCount",      result.getRowCount());
+            r.put("summary",       result.getSummaryText());
+            r.put("excelFilename", result.getExcelFilename());
+            r.put("team",          team);
+            r.put("startDate",     startDate.toString());
+            r.put("endDate",       endDate.toString());
             return ResponseEntity.ok(r);
 
         } catch (IOException e) {
@@ -1298,6 +1306,37 @@ public class AdminController {
             }
             return ResponseEntity.status(500).body(err("Failed to generate forecast report: " + msg));
         }
+    }
+
+    /**
+     * GET /api/admin/team-forecast/download?file=team-forecast-12345.xlsx
+     * Downloads a generated forecast Excel report from {dataDir}/temp/.
+     */
+    @GetMapping("/api/admin/team-forecast/download")
+    public ResponseEntity<Resource> downloadTeamForecastExcel(
+            @RequestParam("file") String filename) {
+        if (filename == null || filename.trim().isEmpty() || filename.contains("..") || filename.contains("/") || filename.contains("\\")) {
+            return ResponseEntity.badRequest().build();
+        }
+        if (!filename.startsWith("team-forecast-") || !filename.endsWith(".xlsx")) {
+            return ResponseEntity.badRequest().build();
+        }
+
+        String dataDir = appState != null && appState.getDataDir() != null
+                ? appState.getDataDir()
+                : (appProperties.getDataDir() != null ? appProperties.getDataDir() : "data");
+        Path filePath = Paths.get(dataDir, "temp", filename);
+
+        if (!Files.exists(filePath) || !Files.isRegularFile(filePath)) {
+            log.warn("downloadTeamForecastExcel: file not found or expired: {}", filePath);
+            return ResponseEntity.notFound().build();
+        }
+
+        Resource resource = new FileSystemResource(filePath.toFile());
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.parseMediaType("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"))
+                .body(resource);
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────────

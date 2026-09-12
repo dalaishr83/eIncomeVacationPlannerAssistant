@@ -21,6 +21,7 @@
     var selectAll    = document.getElementById("scSelectAll");
     var cardIndian   = document.getElementById("scCardIndian");
     var cardEIndkomst= document.getElementById("scCardEIndkomst");
+    var cardCleanup  = document.getElementById("scCardCleanup");
 
     // ── Radio card behaviour ──────────────────────────────────────────────────
     function syncRadioCards() {
@@ -44,7 +45,7 @@
     document.querySelectorAll("input[name='scTeam']").forEach(function (r) {
         r.addEventListener("change", syncRadioCards);
     });
-    [cardIndian, cardEIndkomst].forEach(function (card) {
+    [cardIndian, cardEIndkomst, cardCleanup].forEach(function (card) {
         if (!card) return;
         card.addEventListener("click", function () {
             var radio = card.querySelector("input[type='radio']");
@@ -60,13 +61,15 @@
 
     // ── Status helpers ────────────────────────────────────────────────────────
     function applyStatus(status, scheduled, lastFired) {
-        var isRunning = (status === "running");
+        var isRunning = (status === "running") || (scheduled > 0);
         statusBadge.className = "sc-status-badge " + (isRunning ? "running" : "stopped");
         statusText.textContent = isRunning
             ? "Running — " + scheduled + " expression(s)"
             : "Stopped";
-        lastFiredEl.textContent = lastFired ? "Last fired: " + lastFired : "";
-        startBtn.disabled = isRunning;
+        if (lastFired !== undefined && lastFired !== null) {
+            lastFiredEl.textContent = lastFired ? "Last fired: " + lastFired : "";
+        }
+        startBtn.disabled = false;
         stopBtn.disabled  = !isRunning;
     }
 
@@ -81,9 +84,13 @@
     // ── Load table ────────────────────────────────────────────────────────────
     function teamBadgeClass(team) {
         if (!team) return "";
-        return team.toLowerCase().indexOf("indian") >= 0
-            ? "sc-team-badge sc-team-indian"
-            : "sc-team-badge sc-team-eindkomst";
+        var t = team.toLowerCase();
+        if (t.indexOf("indian") >= 0) {
+            return "sc-team-badge sc-team-indian";
+        } else if (t.indexOf("cleanup") >= 0) {
+            return "sc-team-badge sc-team-cleanup";
+        }
+        return "sc-team-badge sc-team-eindkomst";
     }
 
     function formatDate(iso) {
@@ -100,16 +107,31 @@
         } catch (e) { return iso; }
     }
 
+    function renderStatusIcon(state) {
+        var isRunning = (state === "running");
+        if (isRunning) {
+            return "<span class='sc-state-badge state-running' title='Running'>"
+                + "<svg width='12' height='12' viewBox='0 0 24 24' fill='currentColor' stroke='none'><polygon points='5,3 19,12 5,21'/></svg>"
+                + "</span>";
+        } else {
+            return "<span class='sc-state-badge state-stopped' title='Stopped'>"
+                + "<svg width='11' height='11' viewBox='0 0 24 24' fill='currentColor' stroke='none'><rect x='4' y='4' width='16' height='16' rx='2'/></svg>"
+                + "</span>";
+        }
+    }
+
     function renderTable(expressions) {
         exprCount.textContent = "(" + expressions.length + ")";
         if (!expressions.length) {
-            tableBody.innerHTML = "<tr class='sc-empty-row'><td colspan='5'>No cron expressions configured yet.</td></tr>";
+            tableBody.innerHTML = "<tr class='sc-empty-row'><td colspan='6'>No cron expressions configured yet.</td></tr>";
             return;
         }
         var rows = expressions.map(function (e) {
             var badgeClass = teamBadgeClass(e.team);
+            var statusIconHtml = renderStatusIcon(e.state);
             return "<tr data-id='" + esc(e.id) + "'>"
                 + "<td><input type='checkbox' class='sc-cb sc-row-cb' data-id='" + esc(e.id) + "'></td>"
+                + "<td style='text-align:center;'>" + statusIconHtml + "</td>"
                 + "<td><span class='sc-expr-code'>" + esc(e.expression) + "</span></td>"
                 + "<td><span class='" + badgeClass + "'>" + esc(e.team || "—") + "</span></td>"
                 + "<td>" + formatDate(e.createdAt) + "</td>"
@@ -149,7 +171,7 @@
             .then(function (r) { return r.json(); })
             .then(function (d) { renderTable(d.expressions || []); })
             .catch(function () {
-                tableBody.innerHTML = "<tr class='sc-empty-row'><td colspan='5'>Failed to load expressions.</td></tr>";
+                tableBody.innerHTML = "<tr class='sc-empty-row'><td colspan='6'>Failed to load expressions.</td></tr>";
             });
     }
 
@@ -219,23 +241,50 @@
         .catch(function () { setMsg(addMsg, "Network error on delete.", "error"); });
     }
 
+    // ── Get selected expression IDs ───────────────────────────────────────────
+    function getSelectedIds() {
+        var checked = tableBody.querySelectorAll(".sc-row-cb:checked");
+        var ids = [];
+        checked.forEach(function (cb) {
+            var id = cb.getAttribute("data-id");
+            if (id) ids.push(id);
+        });
+        return ids;
+    }
+
     // ── Start ─────────────────────────────────────────────────────────────────
     startBtn.addEventListener("click", function () {
-        startBtn.disabled = true;
         setMsg(ctrlMsg, "", "");
-        fetch("/api/admin/cron/start", { method: "POST" })
+        var selectedIds = getSelectedIds();
+        if (!selectedIds.length) {
+            setMsg(ctrlMsg, "Please select at least one cron expression to start.", "error");
+            return;
+        }
+
+        startBtn.disabled = true;
+        fetch("/api/admin/cron/start", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: selectedIds })
+        })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
                 if (res.ok) {
                     setMsg(ctrlMsg, res.d.message || "Scheduler started.", "success");
-                    applyStatus("running", res.d.scheduled, null);
+                    applyStatus(res.d.status, res.d.scheduled, null);
+                    if (res.d.expressions) {
+                        renderTable(res.d.expressions);
+                    } else {
+                        loadExpressions();
+                    }
                 } else {
                     setMsg(ctrlMsg, res.d.error || "Failed to start scheduler.", "error");
-                    startBtn.disabled = false;
                 }
             })
             .catch(function () {
                 setMsg(ctrlMsg, "Network error. Could not start scheduler.", "error");
+            })
+            .finally(function () {
                 startBtn.disabled = false;
             });
     });
@@ -244,12 +293,23 @@
     stopBtn.addEventListener("click", function () {
         stopBtn.disabled = true;
         setMsg(ctrlMsg, "", "");
-        fetch("/api/admin/cron/stop", { method: "POST" })
+        var selectedIds = getSelectedIds();
+        var body = selectedIds.length ? JSON.stringify({ ids: selectedIds }) : JSON.stringify({});
+        fetch("/api/admin/cron/stop", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: body
+        })
             .then(function (r) { return r.json().then(function (d) { return { ok: r.ok, d: d }; }); })
             .then(function (res) {
                 if (res.ok) {
                     setMsg(ctrlMsg, res.d.message || "Scheduler stopped.", "success");
-                    applyStatus("stopped", 0, null);
+                    applyStatus(res.d.status, res.d.scheduled, null);
+                    if (res.d.expressions) {
+                        renderTable(res.d.expressions);
+                    } else {
+                        loadExpressions();
+                    }
                 } else {
                     setMsg(ctrlMsg, res.d.error || "Failed to stop scheduler.", "error");
                     stopBtn.disabled = false;
@@ -257,6 +317,9 @@
             })
             .catch(function () {
                 setMsg(ctrlMsg, "Network error. Could not stop scheduler.", "error");
+                stopBtn.disabled = false;
+            })
+            .finally(function () {
                 stopBtn.disabled = false;
             });
     });

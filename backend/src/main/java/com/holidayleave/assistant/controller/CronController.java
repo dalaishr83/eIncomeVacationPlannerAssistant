@@ -77,9 +77,9 @@ public class CronController {
         if (team == null || team.trim().isEmpty())
             return ResponseEntity.badRequest().body(err("team is required."));
         team = team.trim();
-        if (!"Indian Team".equalsIgnoreCase(team) && !"EIndkomst Team".equalsIgnoreCase(team))
+        if (!"Indian Team".equalsIgnoreCase(team) && !"EIndkomst Team".equalsIgnoreCase(team) && !"Cleanup".equalsIgnoreCase(team))
             return ResponseEntity.badRequest()
-                    .body(err("team must be 'Indian Team' or 'EIndkomst Team'."));
+                    .body(err("team must be 'Indian Team', 'EIndkomst Team', or 'Cleanup'."));
 
         // Tokenise on commas that sit between complete 5-field expressions
         List<String> tokens = tokenise(rawExpr);
@@ -169,19 +169,31 @@ public class CronController {
 
     // ── Start ─────────────────────────────────────────────────────────────────
 
-    /** POST /api/admin/cron/start */
+    /**
+     * POST /api/admin/cron/start
+     * Body (optional): { "ids": ["id1", "id2"] }
+     */
     @PostMapping("/api/admin/cron/start")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> startScheduler(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> startScheduler(
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpSession session) {
         try {
-            int count = schedulerService.start();
+            List<String> ids = extractIds(body);
+            int count;
+            if (ids != null && !ids.isEmpty()) {
+                count = schedulerService.startEntries(ids);
+            } else {
+                return ResponseEntity.badRequest().body(err("No cron expressions selected. Please select at least one expression."));
+            }
             String actingUser = actingUser(session);
             auditService.log("cron_scheduler_started", actingUser, null,
-                    "Scheduler started via API, " + count + " expression(s)", "success", "api");
+                    "Scheduler started via API, " + count + " active expression(s)", "success", "api");
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("status",    "running");
-            r.put("scheduled", count);
-            r.put("message",   "Scheduler started with " + count + " expression(s).");
+            r.put("status",      schedulerService.getStatus().status);
+            r.put("scheduled",   count);
+            r.put("expressions", store.readAll());
+            r.put("message",     "Scheduler started with " + count + " expression(s).");
             return ResponseEntity.ok(r);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(err(e.getMessage()));
@@ -190,18 +202,31 @@ public class CronController {
 
     // ── Stop ──────────────────────────────────────────────────────────────────
 
-    /** POST /api/admin/cron/stop */
+    /**
+     * POST /api/admin/cron/stop
+     * Body (optional): { "ids": ["id1", "id2"] } or empty to stop all / selected
+     */
     @PostMapping("/api/admin/cron/stop")
     @ResponseBody
-    public ResponseEntity<Map<String, Object>> stopScheduler(HttpSession session) {
+    public ResponseEntity<Map<String, Object>> stopScheduler(
+            @RequestBody(required = false) Map<String, Object> body,
+            HttpSession session) {
         try {
-            schedulerService.stop();
+            List<String> ids = extractIds(body);
+            int remaining = 0;
+            if (ids != null && !ids.isEmpty()) {
+                remaining = schedulerService.stopEntries(ids);
+            } else {
+                schedulerService.stop();
+            }
             String actingUser = actingUser(session);
             auditService.log("cron_scheduler_stopped", actingUser, null,
                     "Scheduler stopped via API", "success", "api");
             Map<String, Object> r = new LinkedHashMap<>();
-            r.put("status",  "stopped");
-            r.put("message", "Scheduler stopped successfully.");
+            r.put("status",      schedulerService.getStatus().status);
+            r.put("scheduled",   remaining);
+            r.put("expressions", store.readAll());
+            r.put("message",     ids != null && !ids.isEmpty() ? "Selected expression(s) stopped." : "Scheduler stopped successfully.");
             return ResponseEntity.ok(r);
         } catch (IllegalStateException e) {
             return ResponseEntity.badRequest().body(err(e.getMessage()));
@@ -278,6 +303,27 @@ public class CronController {
         } catch (IllegalArgumentException e) {
             return e.getMessage();
         }
+    }
+
+    @SuppressWarnings("unchecked")
+    private static List<String> extractIds(Map<String, Object> body) {
+        if (body == null) return Collections.emptyList();
+        Object rawIds = body.get("ids");
+        if (rawIds instanceof List) {
+            List<?> list = (List<?>) rawIds;
+            List<String> result = new ArrayList<>();
+            for (Object item : list) {
+                if (item != null && !item.toString().trim().isEmpty()) {
+                    result.add(item.toString().trim());
+                }
+            }
+            return result;
+        }
+        Object singleId = body.get("id");
+        if (singleId != null && !singleId.toString().trim().isEmpty()) {
+            return Collections.singletonList(singleId.toString().trim());
+        }
+        return Collections.emptyList();
     }
 
     private static String actingUser(HttpSession session) {

@@ -17,6 +17,7 @@ import org.mockito.quality.Strictness;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.LocalDate;
 import java.util.*;
@@ -39,7 +40,7 @@ import static org.mockito.Mockito.*;
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
-class TeamForecastServiceTest {
+public class TeamForecastServiceTest {
 
     @Mock private AppState              appState;
     @Mock private PlannerExcelReader    reader;
@@ -526,6 +527,55 @@ class TeamForecastServiceTest {
             assertThat(html).contains("tf-total-row");
             // Grand total cell shows 5
             assertThat(html).contains("tf-total-value\">5<");
+        }
+    }
+
+    // ── Cleanup tests ─────────────────────────────────────────────────────────
+
+    @Nested
+    @DisplayName("cleanupForecastReport")
+    class CleanupForecastReportTests {
+
+        @Test
+        @DisplayName("Deletes files older than 1 hour and retains newer files")
+        void cleanup_deletesOldFilesOnly(@org.junit.jupiter.api.io.TempDir Path tempDir) throws Exception {
+            Path dataDir = tempDir.resolve("data");
+            Path tempSubdir = dataDir.resolve("temp");
+            Files.createDirectories(tempSubdir);
+
+            Path oldFile = tempSubdir.resolve("team-forecast-old.xlsx");
+            Path newFile = tempSubdir.resolve("team-forecast-new.xlsx");
+            Path unrelatedFile = tempSubdir.resolve("other-file.txt");
+
+            Files.write(oldFile, "old content".getBytes());
+            Files.write(newFile, "new content".getBytes());
+            Files.write(unrelatedFile, "unrelated content".getBytes());
+
+            // Set oldFile modified time to 2 hours ago
+            long twoHoursAgo = System.currentTimeMillis() - 7200_000L;
+            Files.setLastModifiedTime(oldFile, java.nio.file.attribute.FileTime.fromMillis(twoHoursAgo));
+
+            // Set newFile modified time to 10 minutes ago
+            long tenMinutesAgo = System.currentTimeMillis() - 600_000L;
+            Files.setLastModifiedTime(newFile, java.nio.file.attribute.FileTime.fromMillis(tenMinutesAgo));
+
+            // Set unrelatedFile modified time to 2 hours ago (should not be deleted since name doesn't match team-forecast-*.xlsx)
+            Files.setLastModifiedTime(unrelatedFile, java.nio.file.attribute.FileTime.fromMillis(twoHoursAgo));
+
+            int deleted = service.cleanupForecastReport(dataDir.toString(), 3600_000L);
+
+            assertThat(deleted).isEqualTo(1);
+            assertThat(Files.exists(oldFile)).isFalse();
+            assertThat(Files.exists(newFile)).isTrue();
+            assertThat(Files.exists(unrelatedFile)).isTrue();
+        }
+
+        @Test
+        @DisplayName("Handles non-existent temp directory safely")
+        void cleanup_nonExistentDirReturnsZero(@org.junit.jupiter.api.io.TempDir Path tempDir) {
+            Path nonExistent = tempDir.resolve("non-existent");
+            int deleted = service.cleanupForecastReport(nonExistent.toString(), 3600_000L);
+            assertThat(deleted).isEqualTo(0);
         }
     }
 }

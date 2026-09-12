@@ -35,6 +35,11 @@
                         <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="2" y1="12" x2="22" y2="12"/><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/></svg>
                         <span>EIndkomst Team</span>
                     </label>
+                    <label class="sc-radio-card" id="scCardCleanup">
+                        <input type="radio" name="scTeam" value="Cleanup">
+                        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/></svg>
+                        <span>Cleanup</span>
+                    </label>
                 </div>
 
                 <!-- Expression input -->
@@ -96,6 +101,7 @@
                     <thead>
                         <tr>
                             <th style="width:36px;"><input type="checkbox" class="sc-cb" id="scSelectAll" title="Select all"></th>
+                            <th style="width:60px;text-align:center;">Status</th>
                             <th>Expression</th>
                             <th>Team</th>
                             <th>Added</th>
@@ -103,7 +109,7 @@
                         </tr>
                     </thead>
                     <tbody id="scTableBody">
-                        <tr class="sc-empty-row"><td colspan="5">Loading…</td></tr>
+                        <tr class="sc-empty-row"><td colspan="6">Loading…</td></tr>
                     </tbody>
                 </table>
             </div>
