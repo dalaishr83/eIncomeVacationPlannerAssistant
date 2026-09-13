@@ -319,7 +319,7 @@ if [[ -d "${SCRIPT_DIR}/data" ]]; then
     rsync -a \
         --ignore-existing \
         "${SCRIPT_DIR}/data/" \
-        "${DATA_DIR/"}/" || true
+        "${DATA_DIR}/" || true
 
 fi
 
