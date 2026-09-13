@@ -224,7 +224,7 @@ elif compgen -G "${SCRIPT_DIR}/backend/target/*.jar" > /dev/null; then
             -printf '%T@ %p\n' |
         sort -nr |
         awk '{$1=""; sub(/^ /,""); print; exit}'
-    "
+    )"
 
 # Any JAR in repository root
 elif compgen -G "${SCRIPT_DIR}/*.jar" > /dev/null; then
@@ -238,7 +238,7 @@ elif compgen -G "${SCRIPT_DIR}/*.jar" > /dev/null; then
             -printf '%T@ %p\n' |
         sort -nr |
         awk '{$1=""; sub(/^ /,""); print; exit}'
-    "
+    )"
 
 fi
 
@@ -270,7 +270,7 @@ if [[ -z "${JAR_SOURCE}" || ! -f "${JAR_SOURCE}" ]]; then
                     -printf '%T@ %p\n' |
                 sort -nr |
                 awk '{$1=""; sub(/^ /,""); print; exit}'
-            "
+            )"
 
         else
 
