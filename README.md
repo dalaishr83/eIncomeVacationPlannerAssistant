@@ -14,12 +14,13 @@ Ask questions about employee leave data in plain English, add or delete vacation
 4. [Quick Start — Local](#quick-start--local)
 5. [Docker](#docker)
 6. [Podman](#podman)
-7. [Environment Variables](#environment-variables)
-8. [Credential Management](#credential-management)
-9. [LLM Provider Configuration](#llm-provider-configuration)
-10. [API Reference](#api-reference)
-11. [Key Design Notes](#key-design-notes)
-12. [Troubleshooting](#troubleshooting)
+7. [Production Deployment — Oracle Cloud Infrastructure (OCI)](#production-deployment--oracle-cloud-infrastructure-oci)
+8. [Environment Variables](#environment-variables)
+9. [Credential Management](#credential-management)
+10. [LLM Provider Configuration](#llm-provider-configuration)
+11. [API Reference](#api-reference)
+12. [Key Design Notes](#key-design-notes)
+13. [Troubleshooting](#troubleshooting)
 
 ---
 
@@ -329,6 +330,100 @@ LLM_BASE_URL=http://host.containers.internal:11434/v1
 **SELinux hosts (Fedora / RHEL / CentOS):**
 
 The `podman-compose.yml` appends `:Z` to volume mounts, which relabels them for SELinux. Remove `:Z` if your host does not enforce SELinux.
+
+---
+
+## Production Deployment — Oracle Cloud Infrastructure (OCI)
+
+A production-oriented automated deployment script [`deploy.sh`](deploy.sh:1) is provided for deploying the application on **Oracle Cloud Infrastructure (OCI)** Compute instances running **Oracle Linux 8 / 9**, **RHEL**, or **Ubuntu**.
+
+### 1. Prerequisites on OCI
+
+1. **OCI Compute Instance:** Provision an instance (e.g., VM.Standard.E4.Flex or VM.Standard.A1.Flex).
+2. **OCI VCN Ingress Rules:**
+   - In your OCI Console, navigate to **Networking → Virtual Cloud Networks → Your VCN → Security Lists / Network Security Groups**.
+   - Add an **Ingress Rule** for TCP port **`8080`** (or your designated `FLASK_PORT` / reverse proxy port `80`/`443`) from source CIDR `0.0.0.0/0`.
+3. **SSH Access:** Connect to your OCI instance via SSH:
+   ```bash
+   ssh -i /path/to/private_key opc@<YOUR_INSTANCE_PUBLIC_IP>
+   ```
+
+### 2. Copy Application Files & Build Artifact
+
+Transfer or clone the workspace onto your OCI instance:
+
+```bash
+# Clone the repository onto the instance
+git clone <YOUR_REPO_URL> /opt/eIncomeVacationAssistant
+cd /opt/eIncomeVacationAssistant
+```
+
+Alternatively, build the backend JAR locally and scp the workspace/JAR to the instance:
+```bash
+# On your build machine
+cd backend && mvn clean package -DskipTests
+scp -i /path/to/private_key -r . opc@<YOUR_INSTANCE_PUBLIC_IP>:/home/opc/eIncomeVacationAssistant
+```
+
+### 3. Run the Automated OCI Deployment Script
+
+Make `deploy.sh` executable and run it as `root` (or using `sudo`):
+
+```bash
+chmod +x deploy.sh
+sudo ./deploy.sh
+```
+
+#### What `deploy.sh` does automatically:
+- **System Dependencies:** Installs OpenJDK 8, `curl`, `jq`, `rsync`, and `firewalld`/`ufw`.
+- **System Isolation:** Creates a dedicated system user/group (`appuser:appuser`) with `/sbin/nologin`.
+- **Directory Hierarchy:** Configures `/opt/holiday-leave-assistant`, `/var/lib/holiday-leave-assistant/data`, `/var/log/holiday-leave-assistant`, and `/etc/holiday-leave-assistant`.
+- **Application Binary & Data Placement:** Copies the packaged JAR into place and synchronizes baseline seed data.
+- **Environment & Secret Template:** Generates a secured `/etc/holiday-leave-assistant/holiday-leave-assistant.env` (permissions `0600`).
+- **Systemd Service Setup:** Creates and enables `/etc/systemd/system/holiday-leave-assistant.service` with automatic restart (`Restart=always`, `RestartSec=10`) and systemd security hardening (`ProtectSystem=full`, `PrivateTmp=true`, `NoNewPrivileges=true`).
+- **OS Firewall Integration:** Opens port `8080/tcp` in `firewalld` (Oracle Linux/RHEL) or `ufw` (Ubuntu).
+- **Health Validation:** Verifies application availability via loopback HTTP checks.
+
+### 4. Configure Production Environment Variables
+
+Edit the production configuration file to set up credentials, LLM keys, and integrations:
+
+```bash
+sudo nano /etc/holiday-leave-assistant/holiday-leave-assistant.env
+```
+
+Key settings to configure:
+- `LOGIN_PASSWORD_HASH`: Set the BCrypt hash for initial admin password bootstrap.
+- `OPENAI_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`: Cloud LLM provider configuration.
+- `SLACK_ENABLED` / `SLACK_WEBHOOK_URL` / `SLACK_BOT_TOKEN`: Slack alerts and notification channels.
+- `BOX_ENABLED` / `BOX_CLIENT_ID` / `BOX_JWT_PRIVATE_KEY`: Cloud storage sync credentials.
+
+Apply changes by restarting the service:
+```bash
+sudo systemctl restart holiday-leave-assistant
+```
+
+### 5. Managing the Service
+
+Use standard `systemctl` and `journalctl` commands to manage the application lifecycle:
+
+```bash
+# Check service status
+sudo systemctl status holiday-leave-assistant
+
+# Restart service
+sudo systemctl restart holiday-leave-assistant
+
+# Stop service
+sudo systemctl stop holiday-leave-assistant
+
+# View live application logs
+sudo journalctl -u holiday-leave-assistant -f
+
+# View file logs
+tail -f /var/log/holiday-leave-assistant/stdout.log
+tail -f /var/log/holiday-leave-assistant/stderr.log
+```
 
 ---
 
