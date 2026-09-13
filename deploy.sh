@@ -1,5 +1,4 @@
-bash
-#!/usr/bin/env bash
+﻿#!/usr/bin/env bash
 # ==============================================================================
 # Production Deployment Script for Oracle Cloud Infrastructure (OCI)
 # Application: Vacation Planner Assistant / Holiday Leave Assistant (Spring Boot)
@@ -250,15 +249,24 @@ if [[ -z "${JAR_SOURCE}" || ! -f "${JAR_SOURCE}" ]]; then
 
     log_warn "Pre-built JAR was not found."
 
+    # Resolve a Maven executable: prefer system mvn, fall back to the wrapper
+    MVN_CMD=""
     if command -v mvn &>/dev/null; then
+        MVN_CMD="mvn"
+    elif [[ -x "${SCRIPT_DIR}/backend/mvnw" ]]; then
+        MVN_CMD="${SCRIPT_DIR}/backend/mvnw"
+        log_info "System Maven not found - using bundled Maven wrapper (mvnw)."
+    fi
+
+    if [[ -n "${MVN_CMD}" ]]; then
 
         if [[ -d "${SCRIPT_DIR}/backend" ]]; then
 
-            log_info "Maven detected. Building Spring Boot application..."
+            log_info "Building Spring Boot application with: ${MVN_CMD}"
 
             (
                 cd "${SCRIPT_DIR}/backend"
-                mvn clean package -DskipTests
+                "${MVN_CMD}" clean package -DskipTests
             )
 
             JAR_SOURCE="$(
