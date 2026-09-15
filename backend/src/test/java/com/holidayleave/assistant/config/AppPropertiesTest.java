@@ -169,9 +169,6 @@ class AppPropertiesTest {
         assertEquals("", box.getClientSecret());
         assertEquals("", box.getEnterpriseId());
         assertEquals("", box.getFolderId());
-        assertEquals("", box.getJwtPrivateKey());
-        assertEquals("", box.getJwtPrivateKeyPassphrase());
-        assertEquals("", box.getJwtPublicKeyId());
     }
 
     @Test

@@ -3,14 +3,11 @@ package com.holidayleave.assistant.service;
 import com.box.sdk.BoxAPIConnection;
 import com.box.sdk.BoxAPIException;
 import com.box.sdk.BoxCCGAPIConnection;
-import com.box.sdk.BoxDeveloperEditionAPIConnection;
 import com.box.sdk.BoxFile;
 import com.box.sdk.BoxFolder;
 import com.box.sdk.BoxGlobalSettings;
 import com.box.sdk.BoxItem;
-import com.box.sdk.IAccessTokenCache;
-import com.box.sdk.InMemoryLRUAccessTokenCache;
-import com.box.sdk.JWTEncryptionPreferences;
+import com.box.sdk.BoxLock;
 import com.holidayleave.assistant.config.AppProperties;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
@@ -39,17 +36,8 @@ import java.util.concurrent.atomic.AtomicInteger;
  * <p>The service is disabled by default ({@code BOX_ENABLED=false}).
  * When disabled, every call to {@link #submitUpload(File)} is a no-op.
  *
- * <p>Authentication:
- * <ul>
- *   <li><b>JWT</b> — used when {@code BOX_JWT_PRIVATE_KEY} is non-empty.
- *       Requires {@code BOX_CLIENT_ID}, {@code BOX_CLIENT_SECRET},
- *       {@code BOX_ENTERPRISE_ID}, {@code BOX_JWT_PUBLIC_KEY_ID}, and
- *       {@code BOX_JWT_PRIVATE_KEY_PASSPHRASE}.</li>
- *   <li><b>CCG</b> (Client Credentials Grant) — used when
- *       {@code BOX_JWT_PRIVATE_KEY} is empty. Requires only
- *       {@code BOX_CLIENT_ID}, {@code BOX_CLIENT_SECRET}, and
- *       {@code BOX_ENTERPRISE_ID}.</li>
- * </ul>
+ * <p>Authentication uses Client Credentials Grant (CCG). Requires
+ * {@code BOX_CLIENT_ID}, {@code BOX_CLIENT_SECRET}, and {@code BOX_ENTERPRISE_ID}.
  */
 @Service
 public class BoxSyncService {
@@ -154,16 +142,36 @@ public class BoxSyncService {
                 return; // success — done
             } catch (BoxAPIException e) {
                 int status = e.getResponseCode();
-                if (status == 401 || status == 403) {
-                    // Auth failure — invalidate the connection and do not retry.
+                String body = e.getMessage() != null ? e.getMessage() : "";
+                if (body.contains("access_denied_item_locked")) {
+                    // The file is locked by another Box client (e.g. open in Office 365 online).
+                    // This is transient — the lock clears when they close the file.
+                    logAttemptFailure(masterFile.getName(), attempt,
+                            "file locked (access_denied_item_locked) — will retry");
+                } else if (status == 401 || status == 403) {
+                    // True auth failure — invalidate the connection and do not retry.
                     log.error("Box authentication failure (HTTP {}): {}", status, e.getMessage());
                     auditService.log("box_auth_failed", "system", null,
                             "HTTP " + status + ": " + e.getMessage(), "error", "box-sync");
                     invalidateConnection();
                     recordFailureAndMaybeBackoff(masterFile.getName());
                     return;
+                } else if (status == 404) {
+                    // Folder not found — either BOX_FOLDER_ID is wrong or the service
+                    // account has not been shared on the target folder.  This is a
+                    // configuration error; retrying will never help.
+                    log.error("Box folder not found (HTTP 404) for folder '{}' — check BOX_FOLDER_ID"
+                            + " and that the service account has Editor access to that folder: {}",
+                            props.getBox().getFolderId(), e.getMessage());
+                    auditService.log("box_upload_failed", "system", null,
+                            "HTTP 404 folder not found folderId=" + props.getBox().getFolderId()
+                            + " — verify BOX_FOLDER_ID and service account folder permissions",
+                            "error", "box-sync");
+                    recordFailureAndMaybeBackoff(masterFile.getName());
+                    return;
+                } else {
+                    logAttemptFailure(masterFile.getName(), attempt, e.getMessage());
                 }
-                logAttemptFailure(masterFile.getName(), attempt, e.getMessage());
             } catch (Exception e) {
                 logAttemptFailure(masterFile.getName(), attempt, e.getMessage());
             }
@@ -190,6 +198,14 @@ public class BoxSyncService {
         recordFailureAndMaybeBackoff(masterFile.getName());
     }
 
+    /**
+     * How long to poll for a lock to clear before giving up on this attempt (ms).
+     * Kept short so the outer retry loop (with its exponential backoff) still fires
+     * and the box-sync thread does not block for more than a few seconds per attempt.
+     */
+    private static final long LOCK_POLL_TIMEOUT_MS  = 30_000L;
+    private static final long LOCK_POLL_INTERVAL_MS =  5_000L;
+
     private void doUpload(File masterFile) throws IOException {
         AppProperties.Box cfg = props.getBox();
         String filename = masterFile.getName();
@@ -204,6 +220,14 @@ public class BoxSyncService {
 
         // Detect whether the file already exists to upload a new version vs. create.
         String existingFileId = findExistingFile(folder, filename);
+
+        // If the file already exists in Box, check whether it is currently locked
+        // (e.g. by Box Drive re-syncing a previous version or Box for Office previewing
+        // it).  Poll briefly so we don't immediately burn an outer retry on a lock that
+        // Box Drive typically holds for only a few seconds after each version upload.
+        if (existingFileId != null) {
+            waitForLockToClear(api, existingFileId, filename);
+        }
 
         String versionId;
         FileInputStream fis = new FileInputStream(masterFile);
@@ -225,6 +249,43 @@ public class BoxSyncService {
         auditService.log("box_upload_complete", "system", null,
                 "file=" + filename + " duration=" + duration + "ms versionId=" + versionId,
                 "success", "box-sync");
+    }
+
+    /**
+     * Polls the lock state of {@code fileId} until it is clear or
+     * {@link #LOCK_POLL_TIMEOUT_MS} elapses.  If the file is still locked at
+     * timeout this method returns normally — the subsequent
+     * {@link BoxFile#uploadNewVersion} will then throw {@link BoxAPIException}
+     * with {@code access_denied_item_locked} and the outer retry loop handles it.
+     *
+     * <p>Box Drive typically holds the lock for 5–30 seconds after uploading a
+     * new version.  Polling at {@link #LOCK_POLL_INTERVAL_MS} intervals catches
+     * most of these transient locks before they burn an outer retry slot.
+     */
+    private void waitForLockToClear(BoxAPIConnection api, String fileId, String filename) {
+        long deadline = System.currentTimeMillis() + LOCK_POLL_TIMEOUT_MS;
+        while (System.currentTimeMillis() < deadline) {
+            try {
+                BoxFile.Info info = new BoxFile(api, fileId).getInfo("lock");
+                BoxLock lock = info.getLock();
+                if (lock == null) {
+                    return; // no lock — proceed immediately
+                }
+                String lockedBy = lock.getCreatedBy() != null ? lock.getCreatedBy().getLogin() : "unknown";
+                log.debug("Box file '{}' is locked by '{}' (expires {}) — waiting {}ms before retry",
+                        filename, lockedBy, lock.getExpiresAt(), LOCK_POLL_INTERVAL_MS);
+                Thread.sleep(LOCK_POLL_INTERVAL_MS);
+            } catch (BoxAPIException e) {
+                // If we can't read lock state, don't block the upload — let it try anyway.
+                log.debug("Could not read lock state for '{}': {} — proceeding", filename, e.getMessage());
+                return;
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return;
+            }
+        }
+        log.warn("Box file '{}' still locked after {}ms — proceeding with upload attempt anyway",
+                filename, LOCK_POLL_TIMEOUT_MS);
     }
 
     /**
@@ -251,43 +312,19 @@ public class BoxSyncService {
         connection = null;
     }
 
-    /**
-     * Builds a {@link BoxAPIConnection}.
-     *
-     * <ul>
-     *   <li>If {@code BOX_JWT_PRIVATE_KEY} is set, uses JWT via
-     *       {@link BoxDeveloperEditionAPIConnection}.</li>
-     *   <li>Otherwise uses CCG via {@link BoxCCGAPIConnection}.</li>
-     * </ul>
-     */
+    /** Builds a CCG {@link BoxAPIConnection}. */
     private BoxAPIConnection buildConnection() {
         AppProperties.Box cfg = props.getBox();
-        boolean useJwt = cfg.getJwtPrivateKey() != null && !cfg.getJwtPrivateKey().isEmpty();
-
-        BoxAPIConnection conn;
-        if (useJwt) {
-            log.debug("Building Box JWT connection for enterprise '{}'", cfg.getEnterpriseId());
-            JWTEncryptionPreferences encPrefs = new JWTEncryptionPreferences();
-            encPrefs.setPublicKeyID(cfg.getJwtPublicKeyId());
-            encPrefs.setPrivateKey(cfg.getJwtPrivateKey());
-            encPrefs.setPrivateKeyPassword(cfg.getJwtPrivateKeyPassphrase());
-
-            IAccessTokenCache tokenCache = new InMemoryLRUAccessTokenCache(10);
-            conn = BoxDeveloperEditionAPIConnection.getAppEnterpriseConnection(
-                    cfg.getEnterpriseId(), cfg.getClientId(), cfg.getClientSecret(),
-                    encPrefs, tokenCache);
-        } else {
-            log.debug("Building Box CCG connection for enterprise '{}'", cfg.getEnterpriseId());
-            conn = BoxCCGAPIConnection.applicationServiceAccountConnection(
-                    cfg.getClientId(), cfg.getClientSecret(), cfg.getEnterpriseId());
-        }
+        log.debug("Building Box CCG connection for enterprise '{}'", cfg.getEnterpriseId());
+        BoxAPIConnection conn = BoxCCGAPIConnection.applicationServiceAccountConnection(
+                cfg.getClientId(), cfg.getClientSecret(), cfg.getEnterpriseId());
 
         // Box SDK defaults to 0 (no timeout), which causes the box-sync thread to
         // block indefinitely when the Box API is slow or unreachable.
         conn.setConnectTimeout(cfg.getConnectTimeoutSeconds() * 1000);
         conn.setReadTimeout(cfg.getReadTimeoutSeconds() * 1000);
-        log.info("BoxSyncService: connection built (CCG={} connectTimeout={}s readTimeout={}s)",
-                !useJwt, cfg.getConnectTimeoutSeconds(), cfg.getReadTimeoutSeconds());
+        log.info("BoxSyncService: CCG connection built (connectTimeout={}s readTimeout={}s)",
+                cfg.getConnectTimeoutSeconds(), cfg.getReadTimeoutSeconds());
         return conn;
     }
 

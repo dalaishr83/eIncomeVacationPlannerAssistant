@@ -396,7 +396,7 @@ Key settings to configure:
 - `LOGIN_PASSWORD_HASH`: Set the BCrypt hash for initial admin password bootstrap.
 - `OPENAI_API_KEY` / `LLM_BASE_URL` / `LLM_MODEL`: Cloud LLM provider configuration.
 - `SLACK_ENABLED` / `SLACK_WEBHOOK_URL` / `SLACK_BOT_TOKEN`: Slack alerts and notification channels.
-- `BOX_ENABLED` / `BOX_CLIENT_ID` / `BOX_JWT_PRIVATE_KEY`: Cloud storage sync credentials.
+- `BOX_ENABLED` / `BOX_CLIENT_ID` / `BOX_CLIENT_SECRET` / `BOX_ENTERPRISE_ID` / `BOX_FOLDER_ID`: IBM Box CCG sync credentials (leave `BOX_JWT_*` empty).
 
 Apply changes by restarting the service:
 ```bash
@@ -454,17 +454,35 @@ All variables can be set in `.env` (copy from `.env.example`) or passed directly
 
 Set `BOX_ENABLED=true` to upload the master Excel file to IBM Box after every successful write. All Box variables are ignored when `BOX_ENABLED` is `false` (default).
 
-| Variable | Description |
-|---|---|
-| `BOX_ENABLED` | `true` to enable; `false` (default) to disable |
-| `BOX_CLIENT_ID` | Box application client ID |
-| `BOX_CLIENT_SECRET` | Box application client secret |
-| `BOX_ENTERPRISE_ID` | Box enterprise ID |
-| `BOX_FOLDER_ID` | Numeric Box folder ID where files are uploaded |
-| `BOX_JWT_PRIVATE_KEY` | JWT private key (PEM). Leave empty to use CCG instead |
-| `BOX_JWT_PRIVATE_KEY_PASSPHRASE` | Passphrase for the JWT private key |
-| `BOX_JWT_PUBLIC_KEY_ID` | JWT key ID registered in the Box developer console |
-| `BOX_RETRY_BACKOFF_SECONDS` | Base back-off interval for Box upload retries (default: `60`) |
+**Approved configuration — Client Credentials Grant (CCG), App Access Only:**
+Box App name: `vacation-planner-assistant` · Authentication: CCG · Access Level: App Access Only.
+Only the four variables marked ✅ are required. JWT fields must be left empty for CCG mode.
+
+| Variable | Required | Description |
+|---|:---:|---|
+| `BOX_ENABLED` | ✅ | `true` to enable; `false` (default) to disable |
+| `BOX_CLIENT_ID` | ✅ | Client ID from the Box app Configuration tab |
+| `BOX_CLIENT_SECRET` | ✅ | Client Secret from the Box app Configuration tab |
+| `BOX_ENTERPRISE_ID` | ✅ | Numeric enterprise ID (Box Admin Console → Account & Billing) |
+| `BOX_FOLDER_ID` | ✅ | Numeric folder ID from the Box folder URL (shared with the app Service Account) |
+| `BOX_JWT_PRIVATE_KEY` | — | **Leave empty** — not used for CCG / App Access Only |
+| `BOX_JWT_PRIVATE_KEY_PASSPHRASE` | — | **Leave empty** — not used for CCG / App Access Only |
+| `BOX_JWT_PUBLIC_KEY_ID` | — | **Leave empty** — not used for CCG / App Access Only |
+| `BOX_RETRY_BACKOFF_SECONDS` | | Base back-off interval for Box upload retries (default: `60`) |
+
+#### Required one-time manual step — share the target folder with the Service Account
+
+Under **App Access Only**, the CCG Service Account cannot see any Box folder until a human explicitly shares it. This is a one-time setup step performed in the Box web UI:
+
+1. Log in to [box.com](https://app.box.com) as an enterprise admin (or the folder owner).
+2. Navigate to the target folder whose numeric ID you set as `BOX_FOLDER_ID`.
+3. Click **Share** → **Invite People**.
+4. Paste the Service Account email address — it takes the form `AutomationUser_<AppID>@boxdevedition.com`.
+   Find it in the [Box Developer Console](https://app.box.com/developers/console) → select **vacation-planner-assistant** → **General Settings** → **Service Account**.
+5. Set the permission level to **Editor** (required for both first-time upload and version updates).
+6. Click **Send** / **OK**.
+
+Once shared, the Service Account — and therefore the application — can list the folder, create the master Excel file on first sync, and upload new versions on every subsequent sync. No other folders in the enterprise are accessible.
 
 > **Port note:** `application.properties` defaults `FLASK_PORT` to `8085`. The shipped `.env.example` and both compose files override it to `8080`. If you run `java -jar` without any `.env`, the server starts on **8085**.
 
@@ -706,7 +724,7 @@ For IBM Watsonx, also set `WATSONX_PROJECT_ID` to your project ID. The adapter a
 | **PlannerExcelReader cache** | Records are cached by (absolute path, `lastModified`). Cache is eagerly evicted by controllers after a write and confirmed-evicted by `SyncService` after the master file is atomically replaced |
 | **Role-aware page routing** | `GET /` serves `admin-page` or `employee-page` depending on session role |
 | **PC approvals write to working file only** | Converted PC→V entries follow the existing working→master sync boundary |
-| **IBM Box sync** | `BoxSyncService` uploads the master file asynchronously on a single background thread after each sync. Supports JWT and CCG authentication. Has retry with exponential back-off and a backoff window after repeated failures |
+| **IBM Box sync** | `BoxSyncService` uploads the master file asynchronously on a single background thread after each sync. Uses **CCG (Client Credentials Grant)** with App Access Only as the approved authentication method — requires only `BOX_CLIENT_ID`, `BOX_CLIENT_SECRET`, `BOX_ENTERPRISE_ID`, and `BOX_FOLDER_ID`. JWT is also supported but not required; leaving `BOX_JWT_PRIVATE_KEY` empty automatically selects CCG. Has retry with exponential back-off and a backoff window after repeated failures |
 | **Single-tenant** | One agent singleton; session-keyed wizard state per session ID via `AppState.pendingVacations` |
 | **Conversation history** | Last 10 turns (20 messages) kept in `AppState`; cleared on new chat |
 | **3-pass fuzzy name matching** | Employee names resolved via: (1) exact substring → (2) token overlap → (3) multi-token fuzzy score |

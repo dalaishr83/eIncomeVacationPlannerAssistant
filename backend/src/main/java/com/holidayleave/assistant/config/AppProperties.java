@@ -149,9 +149,6 @@ public class AppProperties {
         private String clientSecret = "";
         private String enterpriseId = "";
         private String folderId = "";
-        private String jwtPrivateKey = "";
-        private String jwtPrivateKeyPassphrase = "";
-        private String jwtPublicKeyId = "";
         private int retryBackoffSeconds = 60;
         private int connectTimeoutSeconds = 30;
         private int readTimeoutSeconds = 120;
@@ -166,12 +163,6 @@ public class AppProperties {
         public void setEnterpriseId(String enterpriseId) { this.enterpriseId = enterpriseId; }
         public String getFolderId() { return folderId; }
         public void setFolderId(String folderId) { this.folderId = folderId; }
-        public String getJwtPrivateKey() { return jwtPrivateKey; }
-        public void setJwtPrivateKey(String jwtPrivateKey) { this.jwtPrivateKey = jwtPrivateKey; }
-        public String getJwtPrivateKeyPassphrase() { return jwtPrivateKeyPassphrase; }
-        public void setJwtPrivateKeyPassphrase(String v) { this.jwtPrivateKeyPassphrase = v; }
-        public String getJwtPublicKeyId() { return jwtPublicKeyId; }
-        public void setJwtPublicKeyId(String jwtPublicKeyId) { this.jwtPublicKeyId = jwtPublicKeyId; }
         public int getRetryBackoffSeconds() { return retryBackoffSeconds; }
         public void setRetryBackoffSeconds(int retryBackoffSeconds) { this.retryBackoffSeconds = retryBackoffSeconds; }
         public int getConnectTimeoutSeconds() { return connectTimeoutSeconds; }
