@@ -134,3 +134,41 @@ body {
 /* Slightly dim the inline-colour cells on hover for a subtle effect */
 .ev-table tr:hover td[style],
 .ev-table tr:hover th[style] { opacity: .88; }
+
+/* ── Frozen columns 1 & 2 (Employee Name + CTY) ─────────────────────── */
+/* Col 1 — left edge of scroll container */
+.ev-table th:nth-child(1),
+.ev-table td:nth-child(1) {
+    position: sticky;
+    left: 0;
+    z-index: 2;
+    background: #ffffff;
+}
+
+/* Col 2 — offset by the rendered width of col 1 (~160 px) */
+.ev-table th:nth-child(2),
+.ev-table td:nth-child(2) {
+    position: sticky;
+    left: 160px;
+    z-index: 2;
+    background: #ffffff;
+}
+
+/* Corner header cells must sit above both scroll axes */
+.ev-table th:nth-child(1),
+.ev-table th:nth-child(2) {
+    z-index: 3;
+    background: #f7f8fa;
+}
+
+/* Even-row tint on frozen columns */
+.ev-table tr:nth-child(even) td:nth-child(1),
+.ev-table tr:nth-child(even) td:nth-child(2) {
+    background: #f7f8fa;
+}
+
+/* Hover tint on frozen columns */
+.ev-table tr:hover td:nth-child(1),
+.ev-table tr:hover td:nth-child(2) {
+    background: #eff6ff;
+}
