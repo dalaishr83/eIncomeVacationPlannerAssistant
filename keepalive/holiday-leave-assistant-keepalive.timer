@@ -1,0 +1,11 @@
+[Unit]
+Description=Keep-alive timer for holiday-leave-assistant (every 5 min)
+Requires=holiday-leave-assistant.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=holiday-leave-assistant-keepalive.service
+
+[Install]
+WantedBy=timers.target

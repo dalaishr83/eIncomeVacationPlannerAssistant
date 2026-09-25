@@ -546,7 +546,39 @@ log_info "Restarting ${APP_NAME} service..."
 systemctl restart "${APP_NAME}"
 
 # ------------------------------------------------------------------------------
-# 15. Initial Service Status
+# 15. Keep-Alive Timer
+# ------------------------------------------------------------------------------
+
+KEEPALIVE_SERVICE="/etc/systemd/system/${APP_NAME}-keepalive.service"
+KEEPALIVE_TIMER="/etc/systemd/system/${APP_NAME}-keepalive.timer"
+KEEPALIVE_SRC_DIR="${SCRIPT_DIR}/keepalive"
+
+log_info "Installing keep-alive systemd units..."
+
+if [[ -f "${KEEPALIVE_SRC_DIR}/${APP_NAME}-keepalive.service" ]]; then
+    cp -f "${KEEPALIVE_SRC_DIR}/${APP_NAME}-keepalive.service" "${KEEPALIVE_SERVICE}"
+    chmod 644 "${KEEPALIVE_SERVICE}"
+    log_success "Installed: ${KEEPALIVE_SERVICE}"
+else
+    log_warn "keepalive service unit not found in ${KEEPALIVE_SRC_DIR} — skipping."
+fi
+
+if [[ -f "${KEEPALIVE_SRC_DIR}/${APP_NAME}-keepalive.timer" ]]; then
+    cp -f "${KEEPALIVE_SRC_DIR}/${APP_NAME}-keepalive.timer" "${KEEPALIVE_TIMER}"
+    chmod 644 "${KEEPALIVE_TIMER}"
+    log_success "Installed: ${KEEPALIVE_TIMER}"
+else
+    log_warn "keepalive timer unit not found in ${KEEPALIVE_SRC_DIR} — skipping."
+fi
+
+if [[ -f "${KEEPALIVE_SERVICE}" && -f "${KEEPALIVE_TIMER}" ]]; then
+    systemctl daemon-reload
+    systemctl enable --now "${APP_NAME}-keepalive.timer"
+    log_success "Keep-alive timer enabled and started (fires every 5 minutes)."
+fi
+
+# ------------------------------------------------------------------------------
+# 16. Initial Service Status
 # ------------------------------------------------------------------------------
 
 sleep 2
@@ -568,7 +600,7 @@ else
 fi
 
 # ------------------------------------------------------------------------------
-# 16. Health Check
+# 17. Health Check
 # ------------------------------------------------------------------------------
 
 log_info "Performing application health check on port ${APP_PORT}..."
@@ -608,7 +640,7 @@ for i in {1..30}; do
 done
 
 # ------------------------------------------------------------------------------
-# 17. Deployment Result
+# 18. Deployment Result
 # ------------------------------------------------------------------------------
 
 if [[ "${HEALTH_SUCCESS}" == "true" ]]; then

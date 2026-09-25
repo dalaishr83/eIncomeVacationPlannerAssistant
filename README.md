@@ -15,6 +15,7 @@ Ask questions about employee leave data in plain English, add or delete vacation
 5. [Docker](#docker)
 6. [Podman](#podman)
 7. [Production Deployment — Oracle Cloud Infrastructure (OCI)](#production-deployment--oracle-cloud-infrastructure-oci)
+   - [6. Keep-Alive Timer](#6-keep-alive-timer--prevent-cold-start-delays)
 8. [Environment Variables](#environment-variables)
 9. [Credential Management](#credential-management)
 10. [LLM Provider Configuration](#llm-provider-configuration)
@@ -162,6 +163,9 @@ holiday-leave-assistant/
 ├── diagrams/
 │   ├── use-case-diagram.drawio
 │   └── component-diagram.drawio
+├── keepalive/
+│   ├── holiday-leave-assistant-keepalive.service  ← systemd oneshot ping unit
+│   └── holiday-leave-assistant-keepalive.timer    ← fires every 5 min; keeps JVM warm
 ├── Dockerfile
 ├── docker-compose.yml
 ├── podman-compose.yml
@@ -423,6 +427,54 @@ sudo journalctl -u holiday-leave-assistant -f
 # View file logs
 tail -f /var/log/holiday-leave-assistant/stdout.log
 tail -f /var/log/holiday-leave-assistant/stderr.log
+```
+
+### 6. Keep-Alive Timer — Prevent Cold-Start Delays
+
+When deployed on **burstable OCI shapes** (e.g. `VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) the JVM may experience a cold-start delay of several minutes after a period of inactivity, because the CPU is throttled to near zero when idle. The keep-alive timer fires a local curl ping every 5 minutes to keep the JVM warm.
+
+The unit files are included in the [`keepalive/`](keepalive/) directory. Paste this entire block in one go on the VM — it creates both files and enables the timer:
+
+```bash
+sudo tee /etc/systemd/system/holiday-leave-assistant-keepalive.service <<'EOF'
+[Unit]
+Description=Keep-alive ping for holiday-leave-assistant
+After=holiday-leave-assistant.service
+
+[Service]
+Type=oneshot
+User=nobody
+ExecStart=/usr/bin/curl -fsS --max-time 10 -o /dev/null http://127.0.0.1:8080/login
+EOF
+
+sudo tee /etc/systemd/system/holiday-leave-assistant-keepalive.timer <<'EOF'
+[Unit]
+Description=Keep-alive timer for holiday-leave-assistant (every 5 min)
+Requires=holiday-leave-assistant.service
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=5min
+Unit=holiday-leave-assistant-keepalive.service
+
+[Install]
+WantedBy=timers.target
+EOF
+
+sudo systemctl daemon-reload
+sudo systemctl enable --now holiday-leave-assistant-keepalive.timer
+
+# Verify — should show NEXT trigger ~5 minutes from now
+sudo systemctl list-timers | grep keepalive
+```
+
+> **Note:** If you deploy using [`deploy.sh`](deploy.sh), the timer is installed and enabled automatically as part of the deployment — no manual steps required.
+
+To check the timer status at any time:
+
+```bash
+sudo systemctl list-timers | grep keepalive
+sudo systemctl status holiday-leave-assistant-keepalive.timer
 ```
 
 ---

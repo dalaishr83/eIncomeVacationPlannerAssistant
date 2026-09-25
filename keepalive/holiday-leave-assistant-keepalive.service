@@ -1,0 +1,8 @@
+[Unit]
+Description=Keep-alive ping for holiday-leave-assistant
+After=holiday-leave-assistant.service
+
+[Service]
+Type=oneshot
+User=nobody
+ExecStart=/usr/bin/curl -fsS --max-time 10 -o /dev/null http://127.0.0.1:8080/login
