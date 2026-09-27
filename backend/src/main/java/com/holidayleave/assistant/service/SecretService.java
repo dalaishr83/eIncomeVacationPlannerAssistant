@@ -260,15 +260,39 @@ public class SecretService {
 
             // 3. Provision the new entry.
             Map<String, String> newEntry = new LinkedHashMap<>();
-            newEntry.put("username",      candidate);
-            newEntry.put("hash",          BCrypt.hashpw(DEFAULT_EMPLOYEE_PASSWORD, BCrypt.gensalt()));
-            newEntry.put("role",          "employee");
-            newEntry.put("employee_name", employeeName.trim());
+            newEntry.put("username",       candidate);
+            newEntry.put("hash",           BCrypt.hashpw(DEFAULT_EMPLOYEE_PASSWORD, BCrypt.gensalt()));
+            newEntry.put("role",           "employee");
+            newEntry.put("employee_name",  employeeName.trim());
+            newEntry.put("password_reset", "false");
             creds.put(candidate, newEntry);
 
             save(creds);
             log.info("SecretService: provisioned employee '{}' → username '{}'", employeeName.trim(), candidate);
             return candidate;
+        } finally {
+            writeLock.unlock();
+        }
+    }
+
+    /**
+     * Sets {@code "password_reset"} to {@code "true"} for the given username,
+     * indicating the user has completed their first-login password reset.
+     *
+     * @param username the key in secret.json
+     * @throws IllegalArgumentException if the username key does not exist
+     * @throws IOException              if the file cannot be written
+     */
+    public void markPasswordReset(String username) throws IOException {
+        writeLock.lock();
+        try {
+            Map<String, Map<String, String>> creds = readCredentials();
+            if (!creds.containsKey(username)) {
+                throw new IllegalArgumentException("Unknown credential key: " + username);
+            }
+            creds.get(username).put("password_reset", "true");
+            save(creds);
+            log.info("SecretService: password_reset marked true for '{}'", username);
         } finally {
             writeLock.unlock();
         }

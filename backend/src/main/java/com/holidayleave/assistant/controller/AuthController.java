@@ -56,6 +56,11 @@ public class AuthController {
             session.setAttribute("username",      entry.get("username"));
             session.setAttribute("employee_name", entry.get("employee_name")); // null for admin
             session.setAttribute("session_id",    UUID.randomUUID().toString().replace("-", ""));
+            // Force password reset when the flag is explicitly "false".
+            // Missing flag (pre-existing accounts) is treated as already reset.
+            if ("false".equals(entry.get("password_reset"))) {
+                session.setAttribute("needs_password_reset", true);
+            }
             return "redirect:/";
         }
 

@@ -9,7 +9,6 @@ import org.springframework.web.bind.annotation.*;
 import javax.servlet.http.HttpSession;
 import java.util.LinkedHashMap;
 import java.util.Map;
-
 /**
  * Provides a self-service password-change endpoint for logged-in employees.
  *
@@ -79,6 +78,80 @@ public class PasswordController {
             return ResponseEntity.status(500)
                     .body(err("Failed to update password. Please try again."));
         }
+
+        Map<String, Object> ok = new LinkedHashMap<>();
+        ok.put("success", true);
+        return ResponseEntity.ok(ok);
+    }
+
+    /**
+     * First-login forced password reset.
+     *
+     * POST /api/reset-password
+     *   Body: { "currentPassword": "…", "newPassword": "…" }
+     *
+     * Identical to /api/change-password but additionally:
+     *  - Requires the session flag needs_password_reset = true.
+     *  - On success, sets "password_reset": "true" in secret.json via
+     *    SecretService.markPasswordReset() and clears the session flag.
+     */
+    @PostMapping("/api/reset-password")
+    public ResponseEntity<Map<String, Object>> resetPassword(
+            @RequestBody Map<String, String> body,
+            HttpSession session) {
+
+        // 1. Require an active authenticated session with the reset flag.
+        if (!Boolean.TRUE.equals(session.getAttribute("logged_in"))) {
+            return ResponseEntity.status(401).body(err("Unauthorised"));
+        }
+        if (!Boolean.TRUE.equals(session.getAttribute("needs_password_reset"))) {
+            return ResponseEntity.status(400).body(err("Password reset not required for this session."));
+        }
+
+        String username = (String) session.getAttribute("username");
+        if (username == null) {
+            return ResponseEntity.status(401).body(err("Unauthorised"));
+        }
+
+        String currentPassword = body.get("currentPassword");
+        String newPassword     = body.get("newPassword");
+
+        if (currentPassword == null || currentPassword.isEmpty() ||
+                newPassword == null || newPassword.isEmpty()) {
+            return ResponseEntity.badRequest()
+                    .body(err("Both current and new passwords are required."));
+        }
+
+        // 2. Verify current password.
+        Map<String, String> entry = secretService.findByUsername(username);
+        if (entry == null) {
+            return ResponseEntity.status(401).body(err("Unauthorised"));
+        }
+
+        String storedHash = entry.get("hash");
+        boolean matches;
+        try {
+            matches = storedHash != null && BCrypt.checkpw(currentPassword, storedHash);
+        } catch (Exception e) {
+            matches = false;
+        }
+
+        if (!matches) {
+            return ResponseEntity.status(400)
+                    .body(err("Current password is incorrect."));
+        }
+
+        // 3. Persist new hashed password and mark reset complete.
+        try {
+            secretService.updatePassword(username, newPassword);
+            secretService.markPasswordReset(username);
+        } catch (Exception e) {
+            return ResponseEntity.status(500)
+                    .body(err("Failed to update password. Please try again."));
+        }
+
+        // 4. Clear the reset flag from the session.
+        session.removeAttribute("needs_password_reset");
 
         Map<String, Object> ok = new LinkedHashMap<>();
         ok.put("success", true);

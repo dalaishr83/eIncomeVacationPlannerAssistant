@@ -184,35 +184,6 @@
     }
     loadEmployeeDropdown();
 
-    // ── Load admin credentials into the dropdown ──────────────────────────────
-    function loadAdminDropdown() {
-        fetch('/api/admin/settings/admin-credentials')
-            .then(function (r) { return r.json(); })
-            .then(function (data) {
-                var sel = document.getElementById('adminSelect');
-                var admins = data.admins || [];
-                sel.innerHTML = '';
-                if (admins.length === 0) {
-                    sel.innerHTML = '<option value="">— No admins found —</option>';
-                    return;
-                }
-                sel.innerHTML = '<option value="">— Select an admin —</option>';
-                admins.forEach(function (adm) {
-                    var opt = document.createElement('option');
-                    opt.value = adm.username;
-                    opt.textContent = adm.employee_name
-                        ? adm.employee_name + ' (' + adm.username + ')'
-                        : adm.username;
-                    sel.appendChild(opt);
-                });
-            })
-            .catch(function () {
-                document.getElementById('adminSelect').innerHTML =
-                    '<option value="">— Failed to load admins —</option>';
-            });
-    }
-    loadAdminDropdown();
-
     // ── Save restricted types ─────────────────────────────────────────────────
     document.getElementById('saveRestrictedBtn').addEventListener('click', function () {
         var checked = [];
@@ -224,22 +195,6 @@
         }).then(function (r) { return r.json(); }).then(function (data) {
             showAlert('restrictedAlert', data.error ? data.error : data.message, !data.error);
         }).catch(function () { showAlert('restrictedAlert', 'Request failed.', false); });
-    });
-
-    // ── Reset admin password ──────────────────────────────────────────────────
-    document.getElementById('resetAdminPasswordBtn').addEventListener('click', function () {
-        var username = document.getElementById('adminSelect').value;
-        var pwd      = document.getElementById('adminNewPassword').value;
-        if (!username) { showAlert('adminPasswordAlert', 'Please select an admin user.', false); return; }
-        if (!pwd || pwd.length < 6) { showAlert('adminPasswordAlert', 'Password must be at least 6 characters.', false); return; }
-        fetch('/api/admin/settings/password-reset', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ role: username, new_password: pwd })
-        }).then(function (r) { return r.json(); }).then(function (data) {
-            showAlert('adminPasswordAlert', data.error ? data.error : data.message, !data.error);
-            if (!data.error) document.getElementById('adminNewPassword').value = '';
-        }).catch(function () { showAlert('adminPasswordAlert', 'Request failed.', false); });
     });
 
     // ── Reset employee password ───────────────────────────────────────────────

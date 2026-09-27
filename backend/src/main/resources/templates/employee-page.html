@@ -222,5 +222,9 @@
 </main>
 
 <script th:src="@{/static/holiday_agent.js}"></script>
+<link th:if="${showPasswordReset}" rel="stylesheet" th:href="@{/static/password_reset.css}"/>
+<th:block th:if="${showPasswordReset}"
+          th:replace="~{fragments/password-reset-modal :: password-reset-modal}">
+</th:block>
 </body>
 </html>

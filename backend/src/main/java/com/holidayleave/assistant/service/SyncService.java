@@ -90,7 +90,7 @@ public class SyncService {
             boolean wasTriggered;
             synchronized (triggerLock) {
                 try {
-                    if (!triggered) triggerLock.wait(5000);
+                    if (!triggered) triggerLock.wait(props.getSyncIntervalSeconds() * 1000L);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     return;

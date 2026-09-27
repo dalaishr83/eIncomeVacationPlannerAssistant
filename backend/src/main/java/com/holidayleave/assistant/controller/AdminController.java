@@ -463,43 +463,23 @@ public class AdminController {
 
     /**
      * GET /api/admin/settings/employee-credentials
-     * Returns [{username, employee_name}] sourced from the active master Excel sheet.
-     * Every employee name found in the planner is included, merged with any existing
-     * credential entry so that username (if already provisioned) is preserved.
+     * Returns [{username, employee_name}] for every credential entry whose role is
+     * "employee" in secret.json. Admin-role accounts are excluded so they do not
+     * appear in the Settings password-reset dropdown.
      * Used by the Settings page Role Management widget and the password-reset dropdown.
      */
     @GetMapping("/api/admin/settings/employee-credentials")
     @ResponseBody
     public ResponseEntity<Map<String, Object>> getEmployeeCredentials() {
-        // Build a lookup of existing credentials keyed by employee_name (lower-cased).
         Map<String, Map<String, String>> all = secretService.readCredentials();
-        Map<String, Map<String, String>> byName = new LinkedHashMap<>();
-        for (Map<String, String> entry : all.values()) {
-            String empName = entry.get("employee_name");
-            if (empName != null) byName.put(empName.toLowerCase(), entry);
-        }
-
-        // Load the full employee roster from the active master Excel sheet.
-        List<String> excelNames = new ArrayList<>();
-        String activePath = appState.resolveCurrentYearFilePath();
-        if (activePath == null) {
-            List<String> active = appState.getActiveFiles();
-            if (!active.isEmpty()) activePath = active.get(0);
-        }
-        if (activePath != null) {
-            try {
-                excelNames = reader.getEmployeeNames(activePath);
-            } catch (IOException e) {
-                log.warn("getEmployeeCredentials: could not read employee names from {}: {}", activePath, e.getMessage());
-            }
-        }
 
         List<Map<String, String>> result = new ArrayList<>();
-        for (String name : excelNames) {
-            Map<String, String> existing = byName.get(name.toLowerCase());
+        for (Map<String, String> entry : all.values()) {
+            // Only include entries whose role is explicitly "employee".
+            if (!"employee".equals(entry.get("role"))) continue;
             Map<String, String> item = new LinkedHashMap<>();
-            item.put("username",      existing != null ? existing.get("username") : "");
-            item.put("employee_name", name);
+            item.put("username",      entry.get("username"));
+            item.put("employee_name", entry.get("employee_name"));
             result.add(item);
         }
 

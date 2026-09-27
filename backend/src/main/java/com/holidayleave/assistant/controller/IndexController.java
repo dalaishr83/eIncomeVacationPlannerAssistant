@@ -44,6 +44,12 @@ public class IndexController {
             model.addAttribute("activeFilename", new File(active.get(0)).getName());
         }
 
+        // Signal the template to show the forced password-reset modal when the
+        // user logged in with the seeded default password (password_reset = false).
+        if (Boolean.TRUE.equals(session.getAttribute("needs_password_reset"))) {
+            model.addAttribute("showPasswordReset", true);
+        }
+
         String role = (String) session.getAttribute("role");
         if ("admin".equals(role)) {
             model.addAttribute("currentPage", "dashboard");

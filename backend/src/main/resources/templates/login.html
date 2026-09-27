@@ -71,7 +71,7 @@
     <!-- Error message -->
     <div th:if="${error}" class="error-msg" th:text="${error}"></div>
 
-    <form method="POST" th:action="@{/login}">
+    <form method="POST" th:action="@{/login}" autocomplete="off">
 
         <div class="field">
             <div class="input-wrap">
