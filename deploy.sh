@@ -213,42 +213,52 @@ log_info "Deployment source directory: ${SCRIPT_DIR}"
 
 JAR_SOURCE=""
 
-# Preferred known application artifact
-if [[ -f "${SCRIPT_DIR}/backend/target/${APP_NAME}-1.0.0.jar" ]]; then
+# When SKIP_DEPS=1 (update deploy) always do a clean Maven build so that
+# source changes pulled from GitHub are never shadowed by a stale target/ JAR.
+if [[ -n "${SKIP_DEPS:-}" ]]; then
 
-    JAR_SOURCE="${SCRIPT_DIR}/backend/target/${APP_NAME}-1.0.0.jar"
+    log_info "SKIP_DEPS=1 — skipping pre-built JAR detection, will build from source."
 
-elif [[ -f "${SCRIPT_DIR}/${APP_NAME}-1.0.0.jar" ]]; then
+else
 
-    JAR_SOURCE="${SCRIPT_DIR}/${APP_NAME}-1.0.0.jar"
+    # Preferred known application artifact
+    if [[ -f "${SCRIPT_DIR}/backend/target/${APP_NAME}-1.0.0.jar" ]]; then
 
-# Any JAR under backend/target
-elif compgen -G "${SCRIPT_DIR}/backend/target/*.jar" > /dev/null; then
+        JAR_SOURCE="${SCRIPT_DIR}/backend/target/${APP_NAME}-1.0.0.jar"
 
-    JAR_SOURCE="$(
-        find "${SCRIPT_DIR}/backend/target" \
-            -maxdepth 1 \
-            -type f \
-            -name '*.jar' \
-            ! -name '*original*.jar' \
-            -printf '%T@ %p\n' |
-        sort -nr |
-        awk '{$1=""; sub(/^ /,""); print; exit}'
-    )"
+    elif [[ -f "${SCRIPT_DIR}/${APP_NAME}-1.0.0.jar" ]]; then
 
-# Any JAR in repository root
-elif compgen -G "${SCRIPT_DIR}/*.jar" > /dev/null; then
+        JAR_SOURCE="${SCRIPT_DIR}/${APP_NAME}-1.0.0.jar"
 
-    JAR_SOURCE="$(
-        find "${SCRIPT_DIR}" \
-            -maxdepth 1 \
-            -type f \
-            -name '*.jar' \
-            ! -name '*original*.jar' \
-            -printf '%T@ %p\n' |
-        sort -nr |
-        awk '{$1=""; sub(/^ /,""); print; exit}'
-    )"
+    # Any JAR under backend/target
+    elif compgen -G "${SCRIPT_DIR}/backend/target/*.jar" > /dev/null; then
+
+        JAR_SOURCE="$(
+            find "${SCRIPT_DIR}/backend/target" \
+                -maxdepth 1 \
+                -type f \
+                -name '*.jar' \
+                ! -name '*original*.jar' \
+                -printf '%T@ %p\n' |
+            sort -nr |
+            awk '{$1=""; sub(/^ /,""); print; exit}'
+        )"
+
+    # Any JAR in repository root
+    elif compgen -G "${SCRIPT_DIR}/*.jar" > /dev/null; then
+
+        JAR_SOURCE="$(
+            find "${SCRIPT_DIR}" \
+                -maxdepth 1 \
+                -type f \
+                -name '*.jar' \
+                ! -name '*original*.jar' \
+                -printf '%T@ %p\n' |
+            sort -nr |
+            awk '{$1=""; sub(/^ /,""); print; exit}'
+        )"
+
+    fi
 
 fi
 
