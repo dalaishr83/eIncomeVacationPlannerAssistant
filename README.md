@@ -388,7 +388,66 @@ sudo ./deploy.sh
 - **OS Firewall Integration:** Opens port `8080/tcp` in `firewalld` (Oracle Linux/RHEL) or `ufw` (Ubuntu).
 - **Health Validation:** Verifies application availability via loopback HTTP checks.
 
-### 4. Configure Production Environment Variables
+### 4. Deploying Updates from GitHub
+
+Use this procedure every time you push new code and want to update the running server. It is faster than the initial deploy because it skips the package-installation step.
+
+```bash
+# 1. SSH into the OCI server
+ssh opc@<YOUR_INSTANCE_PUBLIC_IP>
+
+# 2. Pull the latest code from GitHub
+cd /home/opc/eIncomeVacationAssistant
+sudo git pull origin master
+
+# 3. Rebuild and redeploy — skips dnf/yum/apt, always rebuilds the JAR from source
+sudo SKIP_DEPS=1 bash deploy.sh
+```
+
+> **Why `SKIP_DEPS=1`?**
+> Running without this flag invokes `dnf install` on every deploy, which can trigger the `dnf-makecache` background timer and cause an **OOM (Out of Memory) error** on low-memory OCI shapes. `SKIP_DEPS=1` skips the package manager entirely — all dependencies are already installed from the first deploy.
+
+> **Why does `SKIP_DEPS=1` always rebuild the JAR?**
+> Without the flag the script reuses any JAR already present in `backend/target/`, which would deploy stale code even after a `git pull`. When `SKIP_DEPS=1` is set, JAR detection is skipped and Maven always runs a clean build from the latest pulled source.
+
+#### Verify the new JAR contains your changes
+
+After deploy, confirm the updated files are inside the running JAR. For example, to check the excel viewer CSS fix:
+
+```bash
+unzip -p /opt/holiday-leave-assistant/app.jar \
+  BOOT-INF/classes/static/excel_viewer.css | grep "position: sticky"
+# Expected: 4 lines of output
+```
+
+#### After deployment — useful commands
+
+```bash
+# Check service is running
+systemctl status holiday-leave-assistant
+
+# Follow live logs
+journalctl -u holiday-leave-assistant -f
+
+# Check application logs
+tail -f /var/log/holiday-leave-assistant/stderr.log
+tail -f /var/log/holiday-leave-assistant/stdout.log
+```
+
+#### Disable dnf automatic timers (one-time, if not already done)
+
+On Oracle Linux 9, `dnf` ships with OS-level timers that are enabled by default and can cause OOM on low-memory instances. Disable them permanently:
+
+```bash
+sudo systemctl disable --now dnf-makecache.timer
+sudo systemctl disable --now dnf-automatic.timer
+```
+
+> **Note:** `deploy.sh` does **not** create or enable these timers — they are pre-enabled by Oracle Linux. The `SKIP_DEPS=1` flag prevents `deploy.sh` from invoking `dnf` at all on update deploys.
+
+---
+
+### 5. Configure Production Environment Variables
 
 Edit the production configuration file to set up credentials, LLM keys, and integrations:
 
@@ -429,7 +488,7 @@ tail -f /var/log/holiday-leave-assistant/stdout.log
 tail -f /var/log/holiday-leave-assistant/stderr.log
 ```
 
-### 6. Keep-Alive Timer — Prevent Cold-Start Delays
+### 7. Keep-Alive Timer — Prevent Cold-Start Delays
 
 When deployed on **burstable OCI shapes** (e.g. `VM.Standard.A1.Flex`, `VM.Standard.E2.1.Micro`) the JVM may experience a cold-start delay of several minutes after a period of inactivity, because the CPU is throttled to near zero when idle. The keep-alive timer fires a local curl ping every 5 minutes to keep the JVM warm.
 
