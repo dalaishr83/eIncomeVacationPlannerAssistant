@@ -1,4 +1,4 @@
-﻿#!/usr/bin/env bash
+#!/usr/bin/env bash
 # ==============================================================================
 # Production Deployment Script for Oracle Cloud Infrastructure (OCI)
 # Application: Vacation Planner Assistant / Holiday Leave Assistant (Spring Boot)
@@ -90,53 +90,64 @@ log_info "Starting production deployment for ${APP_NAME} on Oracle Cloud Infrast
 # repositories. Do NOT remove or globally disable any OCI repositories.
 # ------------------------------------------------------------------------------
 
-log_info "Checking system dependencies and OpenJDK 8 runtime..."
+# Set SKIP_DEPS=1 to bypass package installation on update deploys where all
+# dependencies are already present.  This avoids invoking dnf/yum/apt and
+# prevents dnf-makecache from being triggered as a side-effect (OOM risk).
+if [[ -z "${SKIP_DEPS:-}" ]]; then
 
-if command -v dnf &>/dev/null; then
+    log_info "Checking system dependencies and OpenJDK 8 runtime..."
 
-    log_info "Installing dependencies using Oracle Linux BaseOS + AppStream repositories..."
+    if command -v dnf &>/dev/null; then
 
-    dnf --disablerepo='*' \
-        --enablerepo=ol9_baseos_latest \
-        --enablerepo=ol9_appstream \
-        install -y \
-        "${JAVA_PACKAGE}-headless" \
-        curl \
-        tar \
-        jq \
-        rsync \
-        firewalld
+        log_info "Installing dependencies using Oracle Linux BaseOS + AppStream repositories..."
 
-elif command -v yum &>/dev/null; then
+        dnf --disablerepo='*' \
+            --enablerepo=ol9_baseos_latest \
+            --enablerepo=ol9_appstream \
+            install -y \
+            "${JAVA_PACKAGE}-headless" \
+            curl \
+            tar \
+            jq \
+            rsync \
+            firewalld
 
-    log_info "Installing dependencies using YUM..."
+    elif command -v yum &>/dev/null; then
 
-    yum install -y \
-        "${JAVA_PACKAGE}-headless" \
-        curl \
-        tar \
-        jq \
-        rsync \
-        firewalld
+        log_info "Installing dependencies using YUM..."
 
-elif command -v apt-get &>/dev/null; then
+        yum install -y \
+            "${JAVA_PACKAGE}-headless" \
+            curl \
+            tar \
+            jq \
+            rsync \
+            firewalld
 
-    log_info "Installing dependencies using APT..."
+    elif command -v apt-get &>/dev/null; then
 
-    apt-get update -qq
+        log_info "Installing dependencies using APT..."
 
-    apt-get install -y -qq \
-        openjdk-8-jre-headless \
-        curl \
-        tar \
-        jq \
-        rsync \
-        ufw
+        apt-get update -qq
+
+        apt-get install -y -qq \
+            openjdk-8-jre-headless \
+            curl \
+            tar \
+            jq \
+            rsync \
+            ufw
+
+    else
+
+        log_warn "Unknown package manager."
+        log_warn "Ensure Java 8+, curl, tar, jq and rsync are installed manually."
+
+    fi
 
 else
 
-    log_warn "Unknown package manager."
-    log_warn "Ensure Java 8+, curl, tar, jq and rsync are installed manually."
+    log_info "SKIP_DEPS=1 set — skipping package installation."
 
 fi
 
