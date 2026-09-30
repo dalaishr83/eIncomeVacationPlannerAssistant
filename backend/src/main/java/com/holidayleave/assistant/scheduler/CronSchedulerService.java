@@ -444,7 +444,7 @@ public class CronSchedulerService {
      * required 6-field format ({@code "0 <min> <hour> <dom> <month> <dow>"})).
      */
     private void scheduleEntry(final CronEntry entry) {
-        String springCron = "0 " + entry.getExpression();
+        String springCron = "0 " + CronDateRangeResolver.normalizeUnixDow(entry.getExpression());
         TaskScheduler ts  = taskScheduler; // capture reference (lambda safety)
         try {
             java.util.TimeZone tz = java.util.TimeZone.getTimeZone(

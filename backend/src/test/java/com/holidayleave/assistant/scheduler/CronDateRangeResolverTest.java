@@ -224,4 +224,91 @@ public class CronDateRangeResolverTest {
         String adjusted = CronDateRangeResolver.preponeCronExpressionIfNeeded("30 11 * * 5", now, Collections.emptySet());
         assertNull(adjusted);
     }
+    // ── normalizeUnixDow ──────────────────────────────────────────────────────
+
+    /**
+     * Spring CronExpression DOW convention (verified empirically):
+     *   1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday
+     * Unix/crontab DOW convention:
+     *   0=Sunday, 1=Monday, 2=Tuesday, 3=Wednesday, 4=Thursday, 5=Friday, 6=Saturday, 7=Sunday(alt)
+     *
+     * The only translation required is: Unix 0 → Spring 7 (and Unix 7 → Spring 7).
+     * Values 1–6 are identical in both conventions.
+     */
+    @Nested
+    @DisplayName("normalizeUnixDow — Unix DOW → Spring DOW normalisation")
+    class NormalizeUnixDowTests {
+
+        @Test
+        @DisplayName("Friday (Unix 5) is unchanged — Spring 5 = Friday")
+        void friday() {
+            assertEquals("30 11 * * 5", CronDateRangeResolver.normalizeUnixDow("30 11 * * 5"));
+        }
+
+        @Test
+        @DisplayName("Monday (Unix 1) is unchanged — Spring 1 = Monday")
+        void monday() {
+            assertEquals("30 11 * * 1", CronDateRangeResolver.normalizeUnixDow("30 11 * * 1"));
+        }
+
+        @Test
+        @DisplayName("Saturday (Unix 6) is unchanged — Spring 6 = Saturday")
+        void saturday() {
+            assertEquals("30 11 * * 6", CronDateRangeResolver.normalizeUnixDow("30 11 * * 6"));
+        }
+
+        @Test
+        @DisplayName("Unix Sunday (0) → Spring 7 (Sunday)")
+        void sundayZero() {
+            assertEquals("0 9 * * 7", CronDateRangeResolver.normalizeUnixDow("0 9 * * 0"));
+        }
+
+        @Test
+        @DisplayName("Unix Sunday (7) → Spring 7 (Sunday) — already correct, no-op")
+        void sundaySeven() {
+            assertEquals("0 9 * * 7", CronDateRangeResolver.normalizeUnixDow("0 9 * * 7"));
+        }
+
+        @Test
+        @DisplayName("Wildcard DOW (*) passes through unchanged")
+        void wildcard() {
+            assertEquals("30 11 * * *", CronDateRangeResolver.normalizeUnixDow("30 11 * * *"));
+        }
+
+        @Test
+        @DisplayName("Comma-separated Mon,Fri (1,5) unchanged — both are same in Spring")
+        void commaSeparated() {
+            assertEquals("0 8 * * 1,5", CronDateRangeResolver.normalizeUnixDow("0 8 * * 1,5"));
+        }
+
+        @Test
+        @DisplayName("Comma list with Unix Sunday (0,5) → Sunday translated (7,5)")
+        void commaSeparatedWithSunday() {
+            assertEquals("0 8 * * 7,5", CronDateRangeResolver.normalizeUnixDow("0 8 * * 0,5"));
+        }
+
+        @Test
+        @DisplayName("Range Mon–Fri (1-5) passes through unchanged")
+        void range() {
+            assertEquals("0 8 * * 1-5", CronDateRangeResolver.normalizeUnixDow("0 8 * * 1-5"));
+        }
+
+        @Test
+        @DisplayName("Step expression Mon–Fri every 2nd day (1-5/2) passes through unchanged")
+        void stepExpression() {
+            assertEquals("0 8 * * 1-5/2", CronDateRangeResolver.normalizeUnixDow("0 8 * * 1-5/2"));
+        }
+
+        @Test
+        @DisplayName("Named token (FRI) passes through unchanged")
+        void namedToken() {
+            assertEquals("30 11 * * FRI", CronDateRangeResolver.normalizeUnixDow("30 11 * * FRI"));
+        }
+
+        @Test
+        @DisplayName("null input returns null")
+        void nullInput() {
+            assertNull(CronDateRangeResolver.normalizeUnixDow(null));
+        }
+    }
 }

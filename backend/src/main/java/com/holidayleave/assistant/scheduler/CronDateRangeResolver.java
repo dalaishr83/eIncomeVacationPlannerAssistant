@@ -276,14 +276,24 @@ public final class CronDateRangeResolver {
     /**
      * Calculates the next target fire date and time for a 5-field cron expression after {@code afterDateTime}.
      *
-     * @param fiveFieldExpression 5-field cron expression
+     * <p><b>DOW translation:</b> Users supply Unix-style day-of-week values
+     * (0=Sunday … 6=Saturday, 7=Sunday).  Spring 5.3's {@code CronExpression}
+     * uses Quartz-style numbering (1=Sunday … 7=Saturday), so every numeric DOW
+     * value must be shifted: Unix {@code n} → Spring {@code n+1}, with Unix
+     * {@code 0} and {@code 7} (both Sunday) mapping to Spring {@code 7}.
+     * Non-numeric DOW tokens (*, ?, named days) are passed through unchanged.</p>
+     *
+     * @param fiveFieldExpression 5-field Unix cron expression (min hour dom month dow)
      * @param afterDateTime       reference date-time (e.g. current moment)
      * @return next fire LocalDateTime or null if invalid
      */
     public static java.time.LocalDateTime calculateNextFireDateTime(String fiveFieldExpression, java.time.LocalDateTime afterDateTime) {
         if (fiveFieldExpression == null || afterDateTime == null) return null;
         String[] fields = fiveFieldExpression.trim().split("\\s+");
-        String sixField = fields.length == 6 ? fiveFieldExpression.trim() : "0 " + fiveFieldExpression.trim();
+        String fiveNormalized = fields.length == 5
+                ? normalizeUnixDow(fiveFieldExpression.trim())
+                : fiveFieldExpression.trim();
+        String sixField = fields.length == 6 ? fiveNormalized : "0 " + fiveNormalized;
         try {
             org.springframework.scheduling.support.CronExpression expr =
                     org.springframework.scheduling.support.CronExpression.parse(sixField);
@@ -291,6 +301,88 @@ public final class CronDateRangeResolver {
         } catch (Exception e) {
             log.warn("calculateNextFireDateTime: failed to parse '{}': {}", fiveFieldExpression, e.getMessage());
             return null;
+        }
+    }
+
+    /**
+     * Normalises the DOW field of a 5-field Unix cron expression so that it is
+     * compatible with Spring's {@link org.springframework.scheduling.support.CronExpression}.
+     *
+     * <p>Spring {@code CronExpression} uses ISO-like numbering where
+     * 1=Monday, 2=Tuesday, … 5=Friday, 6=Saturday, 7=Sunday.  This is identical
+     * to the standard Unix/crontab convention for days 1–6 (Mon–Sat).  The only
+     * difference is Sunday: Unix allows {@code 0} and {@code 7}, while Spring
+     * accepts only {@code 7}.  Therefore the only translation performed is
+     * {@code 0 → 7} and {@code 7 → 7}; values 1–6 pass through unchanged.</p>
+     *
+     * <p>Only the DOW field (index 4) is modified.  All other fields are returned
+     * unchanged.  Non-numeric DOW tokens (*, ?, named abbreviations) are passed
+     * through as-is.</p>
+     *
+     * @param fiveFieldExpr a whitespace-normalised 5-field Unix cron expression
+     * @return the expression with the DOW field normalised for Spring
+     */
+    static String normalizeUnixDow(String fiveFieldExpr) {
+        if (fiveFieldExpr == null) return null;
+        String[] parts = fiveFieldExpr.trim().split("\\s+");
+        if (parts.length != 5) return fiveFieldExpr;
+        parts[4] = translateDowField(parts[4]);
+        return parts[0] + " " + parts[1] + " " + parts[2] + " " + parts[3] + " " + parts[4];
+    }
+
+    /**
+     * Translates a single DOW field token from Unix numbering to Spring/Quartz numbering.
+     * Handles plain numbers, comma-separated lists, ranges (e.g. {@code 1-5}),
+     * and step expressions (e.g. {@code 1-5/2}).  Named tokens and wildcards are
+     * passed through unchanged.
+     */
+    private static String translateDowField(String field) {
+        if (field == null || field.isEmpty()) return field;
+        // Wildcards and named-day tokens — pass through unchanged
+        if ("*".equals(field) || "?".equals(field)) return field;
+        // Comma-separated list: translate each token independently
+        if (field.contains(",")) {
+            String[] tokens = field.split(",");
+            StringBuilder sb = new StringBuilder();
+            for (int i = 0; i < tokens.length; i++) {
+                if (i > 0) sb.append(',');
+                sb.append(translateDowField(tokens[i].trim()));
+            }
+            return sb.toString();
+        }
+        // Step expression: e.g. "1-5/2" — translate the range part, keep the step
+        if (field.contains("/")) {
+            int slash = field.indexOf('/');
+            String rangePart = field.substring(0, slash);
+            String stepPart  = field.substring(slash);       // includes the '/'
+            return translateDowField(rangePart) + stepPart;
+        }
+        // Range: e.g. "1-5" — translate each bound
+        if (field.contains("-")) {
+            String[] bounds = field.split("-", 2);
+            return translateDowBound(bounds[0]) + "-" + translateDowBound(bounds[1]);
+        }
+        // Plain numeric value
+        return translateDowBound(field);
+    }
+
+    /**
+     * Translates a single numeric DOW bound from Unix to Spring CronExpression convention.
+     *
+     * <p>Spring's {@link org.springframework.scheduling.support.CronExpression} uses
+     * 1=Monday, 2=Tuesday, … 5=Friday, 6=Saturday, 7=Sunday — which is identical to
+     * the Unix/crontab convention for 1–6 (Mon–Sat).  The only difference is Sunday:
+     * Unix allows both 0 and 7 for Sunday, while Spring uses only 7.</p>
+     *
+     * <p>Translation rule: Unix 0 → Spring 7; Unix 7 → Spring 7; Unix 1–6 → unchanged.</p>
+     */
+    private static String translateDowBound(String token) {
+        try {
+            int v = Integer.parseInt(token.trim());
+            if (v == 0 || v == 7) return "7";   // Unix Sunday (0 or 7) → Spring Sunday (7)
+            return String.valueOf(v);             // Mon–Sat (1–6) are identical in both conventions
+        } catch (NumberFormatException e) {
+            return token;                         // named day (MON, FRI, …) — unchanged
         }
     }
 
