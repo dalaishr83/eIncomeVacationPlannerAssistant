@@ -410,6 +410,23 @@ public class CronSchedulerService {
         return count;
     }
 
+    /**
+     * Validates working-cron.json against the current public holiday set and, if
+     * the scheduler is running, re-registers any adjusted live tasks.
+     *
+     * <p>Called by {@link com.holidayleave.assistant.service.SyncService} immediately
+     * after a user-triggered working-file → master sync completes, so that a newly
+     * added public holiday is reflected in the cron schedule without waiting for the
+     * next background validation tick.</p>
+     */
+    public synchronized void validateAndReschedule() {
+        boolean changed = validateAndSyncWorkingCron();
+        if (changed && running) {
+            int count = rescheduleFromWorkingStore();
+            log.info("CronSchedulerService: post-sync reschedule complete — {} active task(s)", count);
+        }
+    }
+
     // ── Lifecycle ─────────────────────────────────────────────────────────────
 
     @PreDestroy

@@ -3,6 +3,7 @@ package com.holidayleave.assistant.service;
 import com.holidayleave.assistant.config.AppProperties;
 import com.holidayleave.assistant.excel.PlannerExcelReader;
 import com.holidayleave.assistant.excel.WorkingExcelWriter;
+import com.holidayleave.assistant.scheduler.CronSchedulerService;
 import javax.annotation.PostConstruct;
 import javax.annotation.PreDestroy;
 import org.slf4j.Logger;
@@ -33,9 +34,10 @@ public class SyncService {
     @Autowired private AppState appState;
     @Autowired private WorkingExcelWriter writer;
     @Autowired private PlannerExcelReader reader;
-    @Autowired private BoxSyncService boxSyncService;
-    @Autowired private AuditService auditService;
-    @Autowired private PublicHolidayCache publicHolidayCache;
+    @Autowired private BoxSyncService        boxSyncService;
+    @Autowired private AuditService          auditService;
+    @Autowired private PublicHolidayCache    publicHolidayCache;
+    @Autowired private CronSchedulerService  cronSchedulerService;
 
     private Thread syncThread;
     private volatile boolean running = false;
@@ -100,10 +102,24 @@ public class SyncService {
             }
             if (!running) break;
             try {
-                syncAll();
-                if (wasTriggered) {
-                    log.info("SyncService: explicit sync triggered — refreshing PublicHolidayCache");
+                boolean anyFileSynced = syncAll();
+                if (wasTriggered && anyFileSynced) {
+                    // ── Post-trigger branch (vacation add/delete via Chat UI) ──────────
+                    // Only runs when at least one working file was actually promoted to
+                    // master — avoids a redundant full XSSFWorkbook parse (and the
+                    // associated GC pressure) when the working file was not modified.
+                    //
+                    // 1. Refresh the public holiday cache so newly written holiday records
+                    //    are immediately visible to the cron scheduler.
+                    log.info("SyncService: explicit sync triggered and file(s) synced — refreshing PublicHolidayCache");
                     publicHolidayCache.refresh();
+                    // 2. Re-validate cron expressions against the updated holiday cache and
+                    //    reschedule any tasks whose fire date now falls on a holiday.
+                    //    This runs on the triggered path only; the regular background
+                    //    validation tick (CRON_VALIDATION_INTERVAL_SECONDS) and the
+                    //    SYNC_INTERVAL_SECONDS daemon schedule are both unaffected.
+                    log.info("SyncService: triggering post-sync cron validation and reschedule");
+                    cronSchedulerService.validateAndReschedule();
                 }
                 failCount = 0;
             } catch (Exception e) {
@@ -118,11 +134,19 @@ public class SyncService {
         }
     }
 
-    private void syncAll() {
+    /**
+     * Copies each modified working file to its master counterpart.
+     *
+     * @return {@code true} if at least one file was actually promoted to master,
+     *         {@code false} if all working files were already up-to-date.
+     *         Callers use this to skip expensive downstream work (cache refresh,
+     *         cron reschedule) when nothing actually changed.
+     */
+    private boolean syncAll() {
         File workingDir = new File(appState.getWorkingDir());
-        if (!workingDir.exists()) return;
+        if (!workingDir.exists()) return false;
         File[] workingFiles = workingDir.listFiles(f -> f.getName().endsWith(".xlsx"));
-        if (workingFiles == null) return;
+        if (workingFiles == null) return false;
 
         List<String> synced = new ArrayList<>();
         boolean anyError = false;
@@ -175,6 +199,8 @@ public class SyncService {
             lastSyncedFiles.clear();
             lastSyncedFiles.addAll(synced);
         } finally { statusLock.unlock(); }
+
+        return !synced.isEmpty();
     }
 
     private int extractYear(String filename) {
