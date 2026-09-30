@@ -33,16 +33,20 @@ public final class CronDateRangeResolver {
 
     public static final class DateRange {
         public final LocalDate startDate;
+        /** End date after weekend/holiday adjustment (may equal originalEndDate). */
         public final LocalDate endDate;
+        /** End date before any weekend/holiday adjustment. */
+        public final LocalDate originalEndDate;
 
-        public DateRange(LocalDate startDate, LocalDate endDate) {
-            this.startDate = startDate;
-            this.endDate   = endDate;
+        public DateRange(LocalDate startDate, LocalDate originalEndDate, LocalDate endDate) {
+            this.startDate       = startDate;
+            this.originalEndDate = originalEndDate;
+            this.endDate         = endDate;
         }
 
         @Override
         public String toString() {
-            return "DateRange{startDate=" + startDate + ", endDate=" + endDate + "}";
+            return "DateRange{startDate=" + startDate + ", originalEndDate=" + originalEndDate + ", endDate=" + endDate + "}";
         }
 
         @Override
@@ -125,7 +129,7 @@ public final class CronDateRangeResolver {
         }
 
         LocalDate adjustedEndDate = adjustEndDateBackwards(originalEndDate, publicHolidays);
-        return new DateRange(startDate, adjustedEndDate);
+        return new DateRange(startDate, originalEndDate, adjustedEndDate);
     }
 
     /**
@@ -407,6 +411,6 @@ public final class CronDateRangeResolver {
     /** Returns a range from the 1st of the fire date's month to the fire date. */
     private static DateRange monthRange(LocalDate fireDate) {
         LocalDate firstOfMonth = fireDate.withDayOfMonth(1);
-        return new DateRange(firstOfMonth, fireDate);
+        return new DateRange(firstOfMonth, fireDate, fireDate);
     }
 }

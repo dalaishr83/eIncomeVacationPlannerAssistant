@@ -491,13 +491,14 @@ public class CronSchedulerService {
         log.info("CronSchedulerService: forecast report date range resolved for team='{}' (fireDate={}, cronStartDate={}, cronEndDate={}, originalExpr='{}', workingExpr='{}')",
                 entry.getTeam(), fireDate, range.startDate, range.endDate, entry.getOriginalExpression(), entry.getExpression());
 
-        // Log and audit if end date was adjusted
-        if (!fireDate.equals(range.endDate)) {
-            String reason = CronDateRangeResolver.isWeekend(fireDate) ? "weekend" : "public holiday";
+        // Log and audit only when the end date was actually shifted backwards due to a
+        // weekend or public holiday (originalEndDate != endDate after adjustment).
+        if (!range.originalEndDate.equals(range.endDate)) {
+            String reason = CronDateRangeResolver.isWeekend(range.originalEndDate) ? "weekend" : "public holiday";
             log.info("Cron end date {} falls on a {} and has been adjusted to nearest previous working day: {}",
-                    fireDate, reason, range.endDate);
+                    range.originalEndDate, reason, range.endDate);
             auditService.log("cron_end_date_adjusted", "system", null,
-                    "Cron end date " + fireDate + " falls on a " + reason +
+                    "Cron end date " + range.originalEndDate + " falls on a " + reason +
                     ". Cron end date has been adjusted to the nearest previous working day: " + range.endDate,
                     "success", "cron");
         }
